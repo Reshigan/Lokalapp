@@ -71,16 +71,16 @@ export default function FloatPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#1e3a5f]" />
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-6">
+    <div className="min-h-screen bg-[#F8F9FA] pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-[#1e3a5f] to-[#2d5a87] text-white p-6 pb-28 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-6 pb-28 rounded-b-[30px]">
         <div className="flex items-center gap-3 mb-6">
           <Button 
             variant="ghost" 
@@ -94,11 +94,11 @@ export default function FloatPage() {
         </div>
         
         {/* Balance Card */}
-        <Card className={`bg-white/10 backdrop-blur border-0 text-white shadow-2xl ${floatInfo?.is_low ? 'ring-2 ring-amber-400' : ''}`}>
+        <Card className={`bg-white/20 backdrop-blur border-0 text-white shadow-xl ${floatInfo?.is_low ? 'ring-2 ring-amber-400' : ''}`}>
           <CardContent className="p-5">
             <div className="flex justify-between items-center">
               <div>
-                <p className="text-[#4da6e8] text-sm">Current Float Balance</p>
+                <p className="text-indigo-200 text-sm">Current Float Balance</p>
                 <p className="text-4xl font-bold tracking-tight">
                   {formatCurrency(floatInfo?.float_balance || 0)}
                 </p>
@@ -111,7 +111,7 @@ export default function FloatPage() {
               </div>
               <Button 
                 size="sm" 
-                className="bg-white text-[#1e3a5f] hover:bg-gray-50 shadow-lg"
+                className="bg-white text-indigo-600 hover:bg-gray-50 shadow-lg"
                 onClick={() => setShowTopup(true)}
               >
                 <Wallet className="w-4 h-4 mr-1" />
@@ -124,9 +124,9 @@ export default function FloatPage() {
 
       {/* Info Cards */}
       <div className="px-4 -mt-14 space-y-4">
-        <Card className="bg-white border-0 shadow-md">
+        <Card className="bg-white border-0 shadow-lg rounded-2xl">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-[#1e3a5f]">Float Information</CardTitle>
+            <CardTitle className="text-lg text-gray-900">Float Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between items-center">
@@ -146,9 +146,9 @@ export default function FloatPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white border-0 shadow-md">
+        <Card className="bg-white border-0 shadow-lg rounded-2xl">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-[#1e3a5f]">About Float</CardTitle>
+            <CardTitle className="text-lg text-gray-900">About Float</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-gray-500">
@@ -171,9 +171,9 @@ export default function FloatPage() {
 
       {/* Top Up Dialog */}
       <Dialog open={showTopup && !success} onOpenChange={setShowTopup}>
-        <DialogContent className="max-w-sm mx-4 bg-white border-0">
+        <DialogContent className="max-w-sm mx-4 bg-white border-0 rounded-3xl">
           <DialogHeader>
-            <DialogTitle className="text-[#1e3a5f]">Top Up Float</DialogTitle>
+            <DialogTitle className="text-gray-900">Top Up Float</DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div>
@@ -197,34 +197,34 @@ export default function FloatPage() {
                 <button
                   className={`w-full p-3 rounded-xl border-2 flex items-center gap-3 transition-colors ${
                     paymentMethod === 'CARD' 
-                      ? 'border-[#4da6e8] bg-[#4da6e8]/10' 
+                      ? 'border-indigo-500 bg-indigo-50' 
                       : 'border-gray-200 hover:border-gray-300 bg-gray-50'
                   }`}
                   onClick={() => setPaymentMethod('CARD')}
                 >
-                  <CreditCard className={`w-5 h-5 ${paymentMethod === 'CARD' ? 'text-[#4da6e8]' : 'text-gray-400'}`} />
+                  <CreditCard className={`w-5 h-5 ${paymentMethod === 'CARD' ? 'text-indigo-500' : 'text-gray-400'}`} />
                   <span className="font-medium text-gray-900">Card Payment</span>
                 </button>
                 <button
                   className={`w-full p-3 rounded-xl border-2 flex items-center gap-3 transition-colors ${
                     paymentMethod === 'EFT' 
-                      ? 'border-[#4da6e8] bg-[#4da6e8]/10' 
+                      ? 'border-indigo-500 bg-indigo-50' 
                       : 'border-gray-200 hover:border-gray-300 bg-gray-50'
                   }`}
                   onClick={() => setPaymentMethod('EFT')}
                 >
-                  <Building className={`w-5 h-5 ${paymentMethod === 'EFT' ? 'text-[#4da6e8]' : 'text-gray-400'}`} />
+                  <Building className={`w-5 h-5 ${paymentMethod === 'EFT' ? 'text-indigo-500' : 'text-gray-400'}`} />
                   <span className="font-medium text-gray-900">Bank Transfer</span>
                 </button>
               </div>
             </div>
           </div>
           <DialogFooter className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowTopup(false)} className="border-gray-200 text-gray-600 hover:bg-gray-50">
+            <Button variant="outline" onClick={() => setShowTopup(false)} className="border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl">
               Cancel
             </Button>
             <Button 
-              className="bg-[#1e3a5f] hover:bg-[#2d5a87]"
+              className="bg-indigo-600 hover:bg-indigo-700 rounded-xl"
               onClick={handleTopup}
               disabled={processing || !topupAmount || parseFloat(topupAmount) < 100}
             >
@@ -257,7 +257,7 @@ export default function FloatPage() {
           </div>
           <DialogFooter>
             <Button 
-              className="w-full bg-[#1e3a5f] hover:bg-[#2d5a87]"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 rounded-xl"
               onClick={() => {
                 setSuccess(false);
                 setShowTopup(false);

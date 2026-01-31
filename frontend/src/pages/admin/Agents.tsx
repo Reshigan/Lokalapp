@@ -101,9 +101,9 @@ export default function AdminAgentsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-6">
+    <div className="min-h-screen bg-[#F8F9FA] pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-[#1e3a5f] to-[#2d5a87] text-white p-6 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-rose-500 to-pink-600 text-white p-6 rounded-b-[30px]">
         <div className="flex items-center gap-3">
           <Button 
             variant="ghost" 
@@ -122,7 +122,7 @@ export default function AdminAgentsPage() {
         
         {loading ? (
           <div className="flex justify-center py-8">
-            <Loader2 className="w-8 h-8 animate-spin text-[#1e3a5f]" />
+            <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
           </div>
         ) : agents.length === 0 ? (
           <Card className="bg-white border-0 shadow-md">
@@ -141,8 +141,8 @@ export default function AdminAgentsPage() {
               >
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 bg-[#4da6e8]/20 rounded-xl flex items-center justify-center">
-                      <UserCheck className="w-6 h-6 text-[#4da6e8]" />
+                    <div className="w-12 h-12 bg-rose-100 rounded-xl flex items-center justify-center">
+                      <UserCheck className="w-6 h-6 text-rose-500" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -195,15 +195,15 @@ export default function AdminAgentsPage() {
 
       {/* Agent Detail Dialog */}
       <Dialog open={!!selectedAgent} onOpenChange={() => setSelectedAgent(null)}>
-        <DialogContent className="max-w-sm mx-4 bg-white border-0">
+        <DialogContent className="max-w-sm mx-4 bg-white border-0 rounded-3xl">
           <DialogHeader>
-            <DialogTitle className="text-[#1e3a5f]">Agent Details</DialogTitle>
+            <DialogTitle className="text-gray-900">Agent Details</DialogTitle>
           </DialogHeader>
           {selectedAgent && (
             <div className="py-4 space-y-4">
               <div className="text-center">
-                <div className="w-16 h-16 bg-[#4da6e8]/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <UserCheck className="w-8 h-8 text-[#4da6e8]" />
+                <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <UserCheck className="w-8 h-8 text-rose-500" />
                 </div>
                 <h3 className="font-bold text-lg text-gray-900">{selectedAgent.business_name}</h3>
                 <p className="text-gray-500">{selectedAgent.agent_code}</p>

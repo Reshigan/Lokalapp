@@ -89,16 +89,16 @@ export default function CommissionsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-6">
+    <div className="min-h-screen bg-[#F8F9FA] pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-[#1e3a5f] to-[#2d5a87] text-white p-6 pb-28 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white p-6 pb-28 rounded-b-[30px]">
         <div className="flex items-center gap-3 mb-6">
           <Button 
             variant="ghost" 
@@ -112,18 +112,18 @@ export default function CommissionsPage() {
         </div>
         
         {/* Balance Card */}
-        <Card className="bg-white/10 backdrop-blur border-0 text-white shadow-2xl">
+        <Card className="bg-white/20 backdrop-blur border-0 text-white shadow-xl">
           <CardContent className="p-5">
             <div className="flex justify-between items-center">
               <div>
-                <p className="text-[#4da6e8] text-sm">Available to Withdraw</p>
+                <p className="text-emerald-100 text-sm">Available to Withdraw</p>
                 <p className="text-4xl font-bold tracking-tight">
                   {formatCurrency(data?.balance || 0)}
                 </p>
               </div>
               <Button 
                 size="sm" 
-                className="bg-white text-[#1e3a5f] hover:bg-gray-50 shadow-lg"
+                className="bg-white text-emerald-600 hover:bg-gray-50 shadow-lg"
                 onClick={() => {
                   setWithdrawAmount(data?.balance.toString() || '');
                   setShowWithdraw(true);
@@ -141,7 +141,7 @@ export default function CommissionsPage() {
       {/* Stats */}
       <div className="px-4 -mt-14">
         <div className="grid grid-cols-2 gap-3 mb-4">
-          <Card className="bg-white border-0 shadow-md">
+          <Card className="bg-white border-0 shadow-lg rounded-2xl">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 text-gray-500 mb-1">
                 <TrendingUp className="w-4 h-4" />
@@ -152,7 +152,7 @@ export default function CommissionsPage() {
               </p>
             </CardContent>
           </Card>
-          <Card className="bg-white border-0 shadow-md">
+          <Card className="bg-white border-0 shadow-lg rounded-2xl">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 text-gray-500 mb-1">
                 <DollarSign className="w-4 h-4" />
@@ -166,9 +166,9 @@ export default function CommissionsPage() {
         </div>
 
         {/* Recent Commissions */}
-        <Card className="bg-white border-0 shadow-md">
+        <Card className="bg-white border-0 shadow-lg rounded-2xl">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-[#1e3a5f]">Recent Commissions</CardTitle>
+            <CardTitle className="text-lg text-gray-900">Recent Commissions</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {!data?.transactions.length ? (
@@ -210,9 +210,9 @@ export default function CommissionsPage() {
 
       {/* Withdraw Dialog */}
       <Dialog open={showWithdraw && !withdrawSuccess} onOpenChange={setShowWithdraw}>
-        <DialogContent className="max-w-sm mx-4 bg-white border-0">
+        <DialogContent className="max-w-sm mx-4 bg-white border-0 rounded-3xl">
           <DialogHeader>
-            <DialogTitle className="text-[#1e3a5f]">Withdraw Commission</DialogTitle>
+            <DialogTitle className="text-gray-900">Withdraw Commission</DialogTitle>
           </DialogHeader>
           <div className="py-4">
             <p className="text-sm text-gray-500 mb-2">
@@ -233,11 +233,11 @@ export default function CommissionsPage() {
             </p>
           </div>
           <DialogFooter className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowWithdraw(false)} className="border-gray-200 text-gray-600 hover:bg-gray-50">
+            <Button variant="outline" onClick={() => setShowWithdraw(false)} className="border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl">
               Cancel
             </Button>
             <Button 
-              className="bg-[#1e3a5f] hover:bg-[#2d5a87]"
+              className="bg-emerald-600 hover:bg-emerald-700 rounded-xl"
               onClick={handleWithdraw}
               disabled={withdrawing || !withdrawAmount || parseFloat(withdrawAmount) <= 0}
             >
@@ -269,7 +269,7 @@ export default function CommissionsPage() {
           </div>
           <DialogFooter>
             <Button 
-              className="w-full bg-[#1e3a5f] hover:bg-[#2d5a87]"
+              className="w-full bg-emerald-600 hover:bg-emerald-700 rounded-xl"
               onClick={() => {
                 setWithdrawSuccess(false);
                 setShowWithdraw(false);

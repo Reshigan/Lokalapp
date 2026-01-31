@@ -70,16 +70,16 @@ export default function AdminReportsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#1e3a5f]" />
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-6">
+    <div className="min-h-screen bg-[#F8F9FA] pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-[#1e3a5f] to-[#2d5a87] text-white p-6 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-rose-500 to-pink-600 text-white p-6 rounded-b-[30px]">
         <div className="flex items-center gap-3 mb-4">
           <Button 
             variant="ghost" 
@@ -100,7 +100,7 @@ export default function AdminReportsPage() {
               variant={period === days ? 'secondary' : 'ghost'}
               size="sm"
               onClick={() => setPeriod(days)}
-              className={period === days ? 'bg-white text-[#1e3a5f] shadow-lg' : 'text-white hover:bg-white/20'}
+              className={period === days ? 'bg-white text-rose-600 shadow-lg' : 'text-white hover:bg-white/20'}
             >
               {days} days
             </Button>
@@ -110,9 +110,9 @@ export default function AdminReportsPage() {
 
       <div className="px-4 mt-4 space-y-4">
         {/* Revenue Summary */}
-        <Card className="bg-white border-0 shadow-md">
+        <Card className="bg-white border-0 shadow-lg rounded-2xl">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2 text-[#1e3a5f]">
+            <CardTitle className="text-lg flex items-center gap-2 text-gray-900">
               <TrendingUp className="w-5 h-5" />
               Revenue Summary
             </CardTitle>
@@ -120,7 +120,7 @@ export default function AdminReportsPage() {
           <CardContent>
             <div className="text-center mb-4">
               <p className="text-sm text-gray-500">Total Revenue ({period} days)</p>
-              <p className="text-3xl font-bold text-[#1e3a5f]">
+              <p className="text-3xl font-bold text-gray-900">
                 {formatCurrency(revenue?.total || 0)}
               </p>
             </div>
@@ -140,18 +140,18 @@ export default function AdminReportsPage() {
                       formatter={(value: number) => formatCurrency(value)}
                       labelFormatter={(label) => new Date(label).toLocaleDateString('en-ZA')}
                       contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-                      labelStyle={{ color: '#1e3a5f' }}
+                      labelStyle={{ color: '#374151' }}
                     />
-                    <Bar dataKey="amount" fill="#1e3a5f" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="amount" fill="#F43F5E" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             )}
 
             <div className="grid grid-cols-3 gap-2 mt-4">
-              <div className="text-center p-2 bg-[#4da6e8]/20 rounded-xl">
+              <div className="text-center p-2 bg-teal-100 rounded-xl">
                 <p className="text-xs text-gray-500">WiFi</p>
-                <p className="font-semibold text-[#4da6e8]">
+                <p className="font-semibold text-teal-600">
                   {formatCurrency(revenue?.by_product.wifi || 0)}
                 </p>
               </div>
@@ -172,9 +172,9 @@ export default function AdminReportsPage() {
         </Card>
 
         {/* Top Agents */}
-        <Card className="bg-white border-0 shadow-md">
+        <Card className="bg-white border-0 shadow-lg rounded-2xl">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2 text-[#1e3a5f]">
+            <CardTitle className="text-lg flex items-center gap-2 text-gray-900">
               <Award className="w-5 h-5" />
               Top Performing Agents
             </CardTitle>
