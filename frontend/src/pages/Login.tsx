@@ -74,7 +74,7 @@ export default function Login() {
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
       {/* Header with gradient */}
       <motion.div 
-        className="bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] pt-16 pb-24 px-6 rounded-b-[40px]"
+        className="bg-gradient-to-br from-[#00B894] to-[#00CEC9] pt-16 pb-24 px-6 rounded-b-[40px]"
         initial={{ opacity: 0, y: -50 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -159,7 +159,7 @@ export default function Login() {
                       placeholder="John"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
-                      className="h-12 rounded-xl border-gray-200 focus:border-[#6C5CE7] focus:ring-[#6C5CE7]"
+                      className="h-12 rounded-xl border-gray-200 focus:border-[#00B894] focus:ring-[#00B894]"
                     />
                   </div>
                   <div>
@@ -169,7 +169,7 @@ export default function Login() {
                       placeholder="Doe"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
-                      className="h-12 rounded-xl border-gray-200 focus:border-[#6C5CE7] focus:ring-[#6C5CE7]"
+                      className="h-12 rounded-xl border-gray-200 focus:border-[#00B894] focus:ring-[#00B894]"
                     />
                   </div>
                 </motion.div>
@@ -185,7 +185,7 @@ export default function Login() {
                   placeholder="081 234 5678"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="h-12 pl-12 rounded-xl border-gray-200 focus:border-[#6C5CE7] focus:ring-[#6C5CE7]"
+                  className="h-12 pl-12 rounded-xl border-gray-200 focus:border-[#00B894] focus:ring-[#00B894]"
                 />
               </div>
             </div>
@@ -199,7 +199,7 @@ export default function Login() {
                   placeholder="Enter password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="h-12 pl-12 pr-12 rounded-xl border-gray-200 focus:border-[#6C5CE7] focus:ring-[#6C5CE7]"
+                  className="h-12 pl-12 pr-12 rounded-xl border-gray-200 focus:border-[#00B894] focus:ring-[#00B894]"
                 />
                 <button
                   type="button"
@@ -226,7 +226,7 @@ export default function Login() {
                       placeholder="Confirm password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="h-12 pl-12 rounded-xl border-gray-200 focus:border-[#6C5CE7] focus:ring-[#6C5CE7]"
+                      className="h-12 pl-12 rounded-xl border-gray-200 focus:border-[#00B894] focus:ring-[#00B894]"
                     />
                   </div>
                 </motion.div>
@@ -235,7 +235,7 @@ export default function Login() {
 
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
               <Button
-                className="w-full h-12 bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-xl shadow-lg"
+                className="w-full h-12 bg-[#00B894] hover:bg-[#00A085] text-white font-semibold rounded-xl shadow-lg"
                 onClick={isRegister ? handleRegister : handleLogin}
                 disabled={loading || phone.length < 9 || password.length < 6}
               >
@@ -257,7 +257,7 @@ export default function Login() {
                   setIsRegister(!isRegister);
                   setError('');
                 }}
-                className="text-sm text-[#6C5CE7] hover:underline font-medium"
+                className="text-sm text-[#00B894] hover:underline font-medium"
               >
                 {isRegister ? 'Already have an account? Sign In' : "Don't have an account? Create one"}
               </button>
