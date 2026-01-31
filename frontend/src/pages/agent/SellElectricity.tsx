@@ -19,7 +19,9 @@ interface ElectricityPackage {
   name: string;
   description: string | null;
   price: number;
-  kwh_amount: number;
+  package_type: string;
+  kwh_amount: number | null;
+  validity_days: number | null;
 }
 
 export default function SellElectricityPage() {
@@ -40,7 +42,7 @@ export default function SellElectricityPage() {
   const loadPackages = async () => {
     setLoading(true);
     const { data } = await api.getElectricityPackages();
-    if (data) setPackages(data);
+    if (data?.packages) setPackages(data.packages);
     setLoading(false);
   };
 
@@ -81,7 +83,7 @@ export default function SellElectricityPage() {
     if (data) {
       setResult({
         reference: data.reference,
-        kwh: selectedPackage.kwh_amount,
+        kwh: selectedPackage.kwh_amount || 0,
         commission: data.commission_earned,
       });
     }
@@ -186,7 +188,7 @@ export default function SellElectricityPage() {
                       <h3 className="font-semibold text-gray-900">{pkg.name}</h3>
                       <div className="flex items-center gap-1 mt-1 text-sm text-gray-400">
                         <Battery className="w-4 h-4" />
-                        {pkg.kwh_amount} kWh
+                        {pkg.kwh_amount ? `${pkg.kwh_amount} kWh` : `${pkg.validity_days} days`}
                       </div>
                     </div>
                   </div>
@@ -194,9 +196,11 @@ export default function SellElectricityPage() {
                     <p className="text-lg font-bold text-[#1e3a5f]">
                       {formatCurrency(pkg.price)}
                     </p>
-                    <p className="text-xs text-gray-400">
-                      {formatCurrency(pkg.price / pkg.kwh_amount)}/kWh
-                    </p>
+                    {pkg.kwh_amount && (
+                      <p className="text-xs text-gray-400">
+                        {formatCurrency(pkg.price / pkg.kwh_amount)}/kWh
+                      </p>
+                    )}
                   </div>
                 </div>
               </CardContent>

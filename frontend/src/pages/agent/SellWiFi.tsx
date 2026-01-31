@@ -43,7 +43,7 @@ export default function SellWiFiPage() {
   const loadPackages = async () => {
     setLoading(true);
     const { data } = await api.getWiFiPackages();
-    if (data) setPackages(data);
+    if (data?.packages) setPackages(data.packages);
     setLoading(false);
   };
 

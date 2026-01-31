@@ -53,7 +53,32 @@ class ApiService {
     }
   }
 
-  // Auth endpoints
+  // Auth endpoints - Phone + Password
+  async registerWithPassword(phone_number: string, password: string, first_name?: string, last_name?: string) {
+    return this.request<{
+      message: string;
+      access_token: string;
+      refresh_token: string;
+      user_id: string;
+    }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ phone_number, password, first_name, last_name }),
+    });
+  }
+
+  async loginWithPassword(phone_number: string, password: string) {
+    return this.request<{
+      access_token: string;
+      refresh_token: string;
+      user_id: string;
+      is_agent: boolean;
+    }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ phone_number, password }),
+    });
+  }
+
+  // Legacy OTP endpoints (kept for backward compatibility)
   async requestOTP(phone_number: string) {
     return this.request<{ message: string; debug_otp?: string }>('/auth/otp/request', {
       method: 'POST',
@@ -69,7 +94,7 @@ class ApiService {
       is_new_user: boolean;
     }>('/auth/otp/verify', {
       method: 'POST',
-      body: JSON.stringify({ phone_number, code }),
+      body: JSON.stringify({ phone_number, otp_code: code }),
     });
   }
 
@@ -191,14 +216,16 @@ class ApiService {
 
   // WiFi endpoints
   async getWiFiPackages() {
-    return this.request<Array<{
-      id: string;
-      name: string;
-      description: string | null;
-      price: number;
-      data_limit_mb: number;
-      validity_hours: number;
-    }>>('/wifi/packages');
+    return this.request<{
+      packages: Array<{
+        id: string;
+        name: string;
+        description: string | null;
+        price: number;
+        data_limit_mb: number;
+        validity_hours: number;
+      }>;
+    }>('/wifi/packages');
   }
 
   async purchaseWiFi(package_id: string) {
@@ -214,19 +241,21 @@ class ApiService {
   }
 
   async getWiFiVouchers() {
-    return this.request<Array<{
-      id: string;
-      package_name: string;
-      voucher_code: string;
-      status: string;
-      data_limit_mb: number;
-      data_used_mb: number;
-      data_remaining_mb: number;
-      validity_hours: number;
-      activated_at: string | null;
-      expires_at: string | null;
-      created_at: string;
-    }>>('/wifi/vouchers');
+    return this.request<{
+      vouchers: Array<{
+        id: string;
+        package_name: string;
+        voucher_code: string;
+        status: string;
+        data_limit_mb: number;
+        data_used_mb: number;
+        data_remaining_mb: number;
+        validity_hours: number;
+        activated_at: string | null;
+        expires_at: string | null;
+        created_at: string;
+      }>;
+    }>('/wifi/vouchers');
   }
 
   async activateVoucher(voucher_id: string) {
@@ -241,13 +270,17 @@ class ApiService {
 
   // Electricity endpoints
   async getElectricityPackages() {
-    return this.request<Array<{
-      id: string;
-      name: string;
-      description: string | null;
-      price: number;
-      kwh_amount: number;
-    }>>('/electricity/packages');
+    return this.request<{
+      packages: Array<{
+        id: string;
+        name: string;
+        description: string | null;
+        price: number;
+        package_type: string;
+        kwh_amount: number | null;
+        validity_days: number | null;
+      }>;
+    }>('/electricity/packages');
   }
 
   async purchaseElectricity(package_id: string, meter_id: string) {
@@ -264,14 +297,16 @@ class ApiService {
   }
 
   async getMeters() {
-    return this.request<Array<{
-      id: string;
-      meter_number: string;
-      address: string | null;
-      kwh_balance: number;
-      status: string;
-      last_reading: number;
-    }>>('/electricity/meters');
+    return this.request<{
+      meters: Array<{
+        id: string;
+        meter_number: string;
+        address: string | null;
+        kwh_balance: number;
+        status: string;
+        unlimited_expires_at: string | null;
+      }>;
+    }>('/electricity/meters');
   }
 
   async registerMeter(meter_number: string, address?: string) {
@@ -664,6 +699,236 @@ class ApiService {
   async deleteIoTDevice(id: string) {
     return this.request(`/admin/settings/iot-devices/${id}`, {
       method: 'DELETE',
+    });
+  }
+
+  // ============== NEW FEATURE ENDPOINTS ==============
+
+  // Transaction Receipt
+  async getTransactionReceipt(transactionId: string) {
+    return this.request<{
+      receipt: {
+        receipt_number: string;
+        date: string;
+        customer_name: string;
+        customer_phone: string;
+        transaction_type: string;
+        description: string;
+        amount: number;
+        fee: number;
+        total: number;
+        balance_after: number;
+        status: string;
+        payment_method: string;
+        platform: string;
+        support_email: string;
+        support_phone: string;
+      };
+    }>(`/transactions/${transactionId}/receipt`);
+  }
+
+  // Referral System
+  async applyReferralCode(referral_code: string) {
+    return this.request<{
+      message: string;
+      points_earned: number;
+      referrer_points_earned: number;
+    }>('/referrals/apply', {
+      method: 'POST',
+      body: JSON.stringify({ referral_code }),
+    });
+  }
+
+  async getReferralStats() {
+    return this.request<{
+      referral_code: string | null;
+      total_referrals: number;
+      total_rewards_earned: number;
+      loyalty_points: number;
+      reward_per_referral: number;
+      points_per_referral: number;
+    }>('/referrals/stats');
+  }
+
+  // Admin Analytics
+  async getAdminAnalytics() {
+    return this.request<{
+      total_users: number;
+      total_agents: number;
+      active_agents: number;
+      total_transactions: number;
+      total_revenue: number;
+      today_new_users: number;
+      today_transactions: number;
+      today_revenue: number;
+    }>('/admin/analytics');
+  }
+
+  async getAdminRevenueAnalytics() {
+    return this.request<{
+      daily_revenue: Array<{
+        date: string;
+        revenue: number;
+        transactions: number;
+      }>;
+      revenue_by_product: {
+        wifi: number;
+        electricity: number;
+      };
+    }>('/admin/analytics/revenue');
+  }
+
+  // Admin Audit Logs
+  async getAdminAuditLogs() {
+    return this.request<{
+      audit_logs: Array<{
+        id: string;
+        user_id: string | null;
+        user_phone: string | null;
+        user_name: string | null;
+        action: string;
+        entity_type: string;
+        entity_id: string | null;
+        old_value: string | null;
+        new_value: string | null;
+        created_at: string;
+      }>;
+    }>('/admin/audit-logs');
+  }
+
+  // Admin Bulk Operations
+  async exportUsers() {
+    const token = this.getToken();
+    const response = await fetch(`${API_BASE_URL}/admin/users/export`, {
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    });
+    return response.blob();
+  }
+
+  async importUsers(users: Array<{
+    phone_number: string;
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+  }>) {
+    return this.request<{
+      imported: number;
+      errors: Array<{ phone?: string; error: string }>;
+    }>('/admin/users/import', {
+      method: 'POST',
+      body: JSON.stringify({ users }),
+    });
+  }
+
+  async exportAgents() {
+    const token = this.getToken();
+    const response = await fetch(`${API_BASE_URL}/admin/agents/export`, {
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    });
+    return response.blob();
+  }
+
+  // Agent Sales Reports
+  async getAgentSalesReport() {
+    return this.request<{
+      today: { sales: number; count: number; commission: number };
+      week: { sales: number; count: number };
+      month: { sales: number; count: number; commission: number };
+      daily_breakdown: Array<{ date: string; sales: number; count: number }>;
+      total_sales: number;
+      commission_balance: number;
+    }>('/agent/sales/report');
+  }
+
+  async exportAgentSales() {
+    const token = this.getToken();
+    const response = await fetch(`${API_BASE_URL}/agent/sales/export`, {
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    });
+    return response.blob();
+  }
+
+  // Agent Customer Management
+  async getAgentCustomers() {
+    return this.request<{
+      customers: Array<{
+        id: string;
+        customer_id: string;
+        customer_phone: string;
+        customer_name: string | null;
+        notes: string | null;
+        total_purchases: number;
+        last_purchase_at: string | null;
+        created_at: string;
+      }>;
+    }>('/agent/customers');
+  }
+
+  async addAgentCustomer(data: {
+    customer_phone: string;
+    customer_name?: string;
+    notes?: string;
+  }) {
+    return this.request<{
+      message: string;
+      customer_id: string;
+    }>('/agent/customers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAgentCustomerDetail(customerId: string) {
+    return this.request<{
+      customer: {
+        id: string;
+        customer_phone: string;
+        customer_name: string | null;
+        notes: string | null;
+        total_purchases: number;
+        last_purchase_at: string | null;
+      };
+      purchase_history: Array<{
+        id: string;
+        product_type: string;
+        product_name: string;
+        amount: number;
+        created_at: string;
+      }>;
+    }>(`/agent/customers/${customerId}`);
+  }
+
+  // Agent Float Alerts
+  async getAgentAlerts() {
+    return this.request<{
+      alerts: Array<{
+        id: string;
+        alert_type: string;
+        threshold: number | null;
+        current_balance: number | null;
+        message: string | null;
+        is_read: boolean;
+        created_at: string;
+      }>;
+      current_float: number;
+      low_float_threshold: number;
+      is_low: boolean;
+    }>('/agent/alerts');
+  }
+
+  async updateAgentAlertSettings(low_float_threshold: number) {
+    return this.request<{
+      message: string;
+      low_float_threshold: number;
+    }>('/agent/alerts/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ low_float_threshold }),
     });
   }
 }

@@ -1,58 +1,30 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
-import { Lock, ArrowRight, Loader2, UserPlus } from 'lucide-react';
+import { ArrowRight, Loader2, UserPlus, Eye, EyeOff, Sparkles, Shield, Zap } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [step, setStep] = useState<'phone' | 'otp' | 'pin'>('phone');
+  const [isRegister, setIsRegister] = useState(false);
   const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
-  const [pin, setPin] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [debugOtp, setDebugOtp] = useState('');
 
-  const formatPhone = (value: string) => {
-    const digits = value.replace(/\D/g, '');
-    if (digits.startsWith('27')) {
-      return '+' + digits;
-    } else if (digits.startsWith('0')) {
-      return '+27' + digits.slice(1);
-    }
-    return '+27' + digits;
-  };
-
-  const handleRequestOTP = async () => {
-    setLoading(true);
-    setError('');
-    const formattedPhone = formatPhone(phone);
-    
-    const { data, error: apiError } = await api.requestOTP(formattedPhone);
-    setLoading(false);
-    
-    if (apiError) {
-      setError(apiError);
-      return;
-    }
-    
-    if (data?.debug_otp) {
-      setDebugOtp(data.debug_otp);
-    }
-    setPhone(formattedPhone);
-    setStep('otp');
-  };
-
-  const handleVerifyOTP = async () => {
+  const handleLogin = async () => {
     setLoading(true);
     setError('');
     
-    const { data, error: apiError } = await api.verifyOTP(phone, otp);
+    const { data, error: apiError } = await api.loginWithPassword(phone, password);
     setLoading(false);
     
     if (apiError) {
@@ -62,16 +34,29 @@ export default function Login() {
     
     if (data) {
       await login(data.access_token, data.refresh_token);
-      navigate('/');
+      if (data.is_agent) {
+        navigate('/agent');
+      } else {
+        navigate('/');
+      }
     }
   };
 
-  const handlePINLogin = async () => {
+  const handleRegister = async () => {
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+    
     setLoading(true);
     setError('');
-    const formattedPhone = formatPhone(phone);
     
-    const { data, error: apiError } = await api.loginWithPIN(formattedPhone, pin);
+    const { data, error: apiError } = await api.registerWithPassword(phone, password, firstName, lastName);
     setLoading(false);
     
     if (apiError) {
@@ -86,177 +71,289 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#1e3a5f] to-[#2d5a87] flex flex-col">
-      {/* Header with decorative shapes */}
-      <div className="relative pt-12 pb-16 px-6">
-        <div className="absolute top-8 right-8 w-16 h-16 border-2 border-white/20 rotate-45" />
-        <div className="absolute top-20 right-20 w-8 h-8 bg-white/10 rounded-full" />
-        <div className="absolute top-32 left-8 w-6 h-6 border-2 border-white/20 rounded-full" />
-        
-        <div className="flex justify-center mb-6">
-          <img src="/lokal-icon.png" alt="Lokal" className="w-20 h-20" />
-        </div>
-        <h1 className="text-3xl font-bold text-white text-center">Lokal</h1>
-        <p className="text-white/70 text-center mt-2">Your digital wallet for local services</p>
+    <div className="min-h-screen bg-lokal-navy relative overflow-hidden">
+      {/* Animated gradient background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-lokal-navy via-lokal-deep to-lokal-navy" />
+      
+      {/* Animated mesh gradient overlay */}
+      <div className="absolute inset-0 opacity-30">
+        <div className="absolute top-0 -left-40 w-80 h-80 bg-lokal-purple rounded-full mix-blend-multiply filter blur-3xl animate-float" />
+        <div className="absolute top-0 -right-40 w-80 h-80 bg-lokal-cyan rounded-full mix-blend-multiply filter blur-3xl animate-float" style={{ animationDelay: '2s' }} />
+        <div className="absolute -bottom-40 left-20 w-80 h-80 bg-lokal-blue rounded-full mix-blend-multiply filter blur-3xl animate-float" style={{ animationDelay: '4s' }} />
       </div>
 
-      {/* Card section */}
-      <div className="flex-1 bg-gray-50 rounded-t-[2rem] px-4 py-8">
-        <Card className="w-full max-w-md mx-auto bg-white shadow-lg border-0">
-          <CardHeader className="text-center pb-2">
-            <CardTitle className="text-xl font-bold text-[#1e3a5f]">
-              {step === 'phone' && 'Sign In'}
-              {step === 'otp' && 'Verify OTP'}
-              {step === 'pin' && 'PIN Login'}
-            </CardTitle>
-            <CardDescription>
-              {step === 'phone' && 'Enter your phone number to get started'}
-              {step === 'otp' && 'Enter the OTP sent to your phone'}
-              {step === 'pin' && 'Enter your PIN to login'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {error && (
-              <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">
-                {error}
+      {/* Grid pattern overlay */}
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:50px_50px]" />
+
+      <div className="relative z-10 min-h-screen flex flex-col">
+        {/* Header */}
+        <motion.div 
+          className="pt-12 pb-8 px-6 text-center"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          {/* Logo with glow effect */}
+          <motion.div 
+            className="relative inline-block mb-6"
+            whileHover={{ scale: 1.05 }}
+            transition={{ type: "spring", stiffness: 300 }}
+          >
+            <div className="absolute inset-0 bg-lokal-cyan/30 rounded-3xl blur-2xl animate-pulse-slow" />
+            <div className="relative w-24 h-24 mx-auto bg-gradient-to-br from-lokal-cyan via-lokal-blue to-lokal-purple rounded-3xl flex items-center justify-center shadow-glow-cyan">
+              <img src="/lokal-icon.png" alt="Lokal" className="w-16 h-16" />
+            </div>
+          </motion.div>
+          
+          <motion.h1 
+            className="text-4xl font-bold bg-gradient-to-r from-white via-lokal-cyan to-lokal-blue bg-clip-text text-transparent"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            Lokal
+          </motion.h1>
+          <motion.p 
+            className="text-white/50 mt-2 text-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            Your digital wallet for local services
+          </motion.p>
+
+          {/* Feature badges */}
+          <motion.div 
+            className="flex justify-center gap-3 mt-6"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+          >
+            {[
+              { icon: Shield, label: 'Secure' },
+              { icon: Zap, label: 'Fast' },
+              { icon: Sparkles, label: 'Easy' }
+            ].map((item, i) => (
+              <div key={i} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 backdrop-blur-sm rounded-full border border-white/10">
+                <item.icon className="w-3.5 h-3.5 text-lokal-cyan" />
+                <span className="text-xs text-white/70">{item.label}</span>
               </div>
-            )}
-            
-            {step === 'phone' && (
-              <>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Phone Number</label>
-                  <Input
-                    type="tel"
-                    placeholder="081 234 5678"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="text-lg h-12 border-gray-200 focus:border-[#4da6e8] focus:ring-[#4da6e8]"
-                  />
-                  <p className="text-xs text-gray-500">South African mobile number</p>
+            ))}
+          </motion.div>
+        </motion.div>
+
+        {/* Card section */}
+        <motion.div 
+          className="flex-1 px-4 pb-8"
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+        >
+          {/* Glassmorphism card */}
+          <div className="w-full max-w-md mx-auto">
+            <div className="relative">
+              {/* Card glow effect */}
+              <div className="absolute -inset-1 bg-gradient-to-r from-lokal-cyan via-lokal-blue to-lokal-purple rounded-3xl blur-lg opacity-30" />
+              
+              <div className="relative bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 p-6 shadow-2xl">
+                {/* Card header */}
+                <div className="text-center mb-6">
+                  <motion.h2 
+                    className="text-2xl font-bold text-white"
+                    key={isRegister ? 'register' : 'login'}
+                    initial={{ opacity: 0, x: isRegister ? 20 : -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {isRegister ? 'Create Account' : 'Welcome Back'}
+                  </motion.h2>
+                  <p className="text-white/50 text-sm mt-1">
+                    {isRegister ? 'Enter your details to get started' : 'Sign in to continue'}
+                  </p>
                 </div>
-                <Button 
-                  className="w-full h-12 bg-[#1e3a5f] hover:bg-[#2d5a87] text-white font-medium" 
-                  onClick={handleRequestOTP}
-                  disabled={loading || phone.length < 9}
-                >
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                  Continue with OTP
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-gray-200" />
+
+                {/* Error message */}
+                <AnimatePresence>
+                  {error && (
+                    <motion.div 
+                      className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-2xl"
+                      initial={{ opacity: 0, y: -10, height: 0 }}
+                      animate={{ opacity: 1, y: 0, height: 'auto' }}
+                      exit={{ opacity: 0, y: -10, height: 0 }}
+                    >
+                      <p className="text-red-400 text-sm text-center">{error}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Form */}
+                <div className="space-y-4">
+                  <AnimatePresence mode="wait">
+                    {isRegister && (
+                      <motion.div 
+                        className="grid grid-cols-2 gap-3"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-white/70">First Name</label>
+                          <Input
+                            type="text"
+                            placeholder="John"
+                            value={firstName}
+                            onChange={(e) => setFirstName(e.target.value)}
+                            className="h-12 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-lokal-cyan focus:ring-lokal-cyan/20 rounded-xl"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-white/70">Last Name</label>
+                          <Input
+                            type="text"
+                            placeholder="Doe"
+                            value={lastName}
+                            onChange={(e) => setLastName(e.target.value)}
+                            className="h-12 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-lokal-cyan focus:ring-lokal-cyan/20 rounded-xl"
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-white/70">Phone Number</label>
+                    <Input
+                      type="tel"
+                      placeholder="081 234 5678"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="h-12 text-lg bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-lokal-cyan focus:ring-lokal-cyan/20 rounded-xl"
+                    />
+                    <p className="text-xs text-white/40">South African mobile number</p>
                   </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-white px-2 text-gray-500">Or</span>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-white/70">Password</label>
+                    <div className="relative">
+                      <Input
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="Enter your password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="h-12 text-lg bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-lokal-cyan focus:ring-lokal-cyan/20 rounded-xl pr-12"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <Button 
-                  variant="outline" 
-                  className="w-full h-12 border-[#1e3a5f] text-[#1e3a5f] hover:bg-[#1e3a5f]/5"
-                  onClick={() => setStep('pin')}
-                >
-                  <Lock className="w-4 h-4 mr-2" />
-                  Login with PIN
-                </Button>
-                <div className="text-center pt-4 border-t border-gray-100">
-                  <p className="text-sm text-gray-500 mb-2">Want to become an agent?</p>
-                  <Link to="/register/agent">
-                    <Button variant="ghost" className="text-[#4da6e8] hover:text-[#3d96d8] hover:bg-[#4da6e8]/10">
-                      <UserPlus className="w-4 h-4 mr-2" />
-                      Register as Agent
+                  
+                  <AnimatePresence mode="wait">
+                    {isRegister && (
+                      <motion.div 
+                        className="space-y-2"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <label className="text-sm font-medium text-white/70">Confirm Password</label>
+                        <Input
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="Confirm your password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className="h-12 text-lg bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-lokal-cyan focus:ring-lokal-cyan/20 rounded-xl"
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  
+                  {/* Submit button with gradient and glow */}
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Button 
+                      className="w-full h-14 bg-gradient-to-r from-lokal-cyan via-lokal-blue to-lokal-purple hover:opacity-90 text-white font-semibold text-lg rounded-xl shadow-glow transition-all duration-300 border-0" 
+                      onClick={isRegister ? handleRegister : handleLogin}
+                      disabled={loading || phone.length < 9 || password.length < 6}
+                    >
+                      {loading ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <>
+                          {isRegister ? 'Create Account' : 'Sign In'}
+                          <ArrowRight className="w-5 h-5 ml-2" />
+                        </>
+                      )}
                     </Button>
+                  </motion.div>
+                  
+                  {/* Toggle login/register */}
+                  <div className="text-center pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsRegister(!isRegister);
+                        setError('');
+                      }}
+                      className="text-sm text-lokal-cyan hover:text-white underline underline-offset-2 transition-colors font-medium"
+                    >
+                      {isRegister ? 'Already have an account? Sign In' : "Don't have an account? Create one"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="relative my-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-white/10" />
+                  </div>
+                  <div className="relative flex justify-center text-xs">
+                    <span className="px-4 bg-transparent text-white/40">or</span>
+                  </div>
+                </div>
+
+                {/* Agent registration link */}
+                <div className="text-center">
+                  <p className="text-sm text-white/40 mb-3">Want to become an agent?</p>
+                  <Link to="/register/agent">
+                    <motion.div
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <Button 
+                        variant="outline" 
+                        className="w-full h-12 bg-white/5 border-white/10 text-white hover:bg-white/10 hover:border-lokal-cyan/50 rounded-xl transition-all duration-300"
+                      >
+                        <UserPlus className="w-4 h-4 mr-2 text-lokal-cyan" />
+                        Register as Agent
+                      </Button>
+                    </motion.div>
                   </Link>
                 </div>
-              </>
-            )}
-            
-            {step === 'otp' && (
-              <>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">OTP Code</label>
-                  <Input
-                    type="text"
-                    placeholder="123456"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    className="text-lg text-center tracking-widest h-12 border-gray-200 focus:border-[#4da6e8] focus:ring-[#4da6e8]"
-                    maxLength={6}
-                  />
-                  {debugOtp && (
-                    <p className="text-xs text-[#4da6e8] text-center">
-                      Demo OTP: {debugOtp}
-                    </p>
-                  )}
-                </div>
-                <Button 
-                  className="w-full h-12 bg-[#1e3a5f] hover:bg-[#2d5a87] text-white font-medium" 
-                  onClick={handleVerifyOTP}
-                  disabled={loading || otp.length !== 6}
-                >
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                  Verify OTP
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  className="w-full text-gray-500 hover:text-gray-700"
-                  onClick={() => {
-                    setStep('phone');
-                    setOtp('');
-                    setDebugOtp('');
-                  }}
-                >
-                  Back to phone number
-                </Button>
-              </>
-            )}
-            
-            {step === 'pin' && (
-              <>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Phone Number</label>
-                  <Input
-                    type="tel"
-                    placeholder="081 234 5678"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="h-12 border-gray-200 focus:border-[#4da6e8] focus:ring-[#4da6e8]"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">PIN</label>
-                  <Input
-                    type="password"
-                    placeholder="Enter your PIN"
-                    value={pin}
-                    onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    className="text-lg text-center tracking-widest h-12 border-gray-200 focus:border-[#4da6e8] focus:ring-[#4da6e8]"
-                    maxLength={6}
-                  />
-                </div>
-                <Button 
-                  className="w-full h-12 bg-[#1e3a5f] hover:bg-[#2d5a87] text-white font-medium" 
-                  onClick={handlePINLogin}
-                  disabled={loading || pin.length < 4 || phone.length < 9}
-                >
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                  Login
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  className="w-full text-gray-500 hover:text-gray-700"
-                  onClick={() => {
-                    setStep('phone');
-                    setPin('');
-                  }}
-                >
-                  Back to OTP login
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Footer */}
+        <motion.div 
+          className="py-4 text-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+        >
+          <p className="text-white/30 text-xs">
+            Powered by Lokal Platform
+          </p>
+        </motion.div>
       </div>
     </div>
   );
