@@ -69,7 +69,7 @@ class ApiService {
       is_new_user: boolean;
     }>('/auth/otp/verify', {
       method: 'POST',
-      body: JSON.stringify({ phone_number, code }),
+      body: JSON.stringify({ phone_number, otp_code: code }),
     });
   }
 
