@@ -53,7 +53,32 @@ class ApiService {
     }
   }
 
-  // Auth endpoints
+  // Auth endpoints - Phone + Password
+  async registerWithPassword(phone_number: string, password: string, first_name?: string, last_name?: string) {
+    return this.request<{
+      message: string;
+      access_token: string;
+      refresh_token: string;
+      user_id: string;
+    }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ phone_number, password, first_name, last_name }),
+    });
+  }
+
+  async loginWithPassword(phone_number: string, password: string) {
+    return this.request<{
+      access_token: string;
+      refresh_token: string;
+      user_id: string;
+      is_agent: boolean;
+    }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ phone_number, password }),
+    });
+  }
+
+  // Legacy OTP endpoints (kept for backward compatibility)
   async requestOTP(phone_number: string) {
     return this.request<{ message: string; debug_otp?: string }>('/auth/otp/request', {
       method: 'POST',

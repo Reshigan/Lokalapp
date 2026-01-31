@@ -51,11 +51,28 @@ def generate_voucher_code():
 def generate_reference():
     return "TXN" + secrets.token_hex(8).upper()
 
-def hash_pin(pin: str) -> str:
-    return hashlib.sha256(pin.encode()).hexdigest()
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()
 
-def verify_pin(pin: str, pin_hash: str) -> bool:
-    return hash_pin(pin) == pin_hash
+def verify_password(password: str, password_hash: str) -> bool:
+    return hash_password(password) == password_hash
+
+def normalize_phone(phone: str) -> str:
+    """Normalize phone number to +27 format"""
+    if not phone:
+        return phone
+    # Remove all non-digit characters except +
+    digits = ''.join(c for c in phone if c.isdigit() or c == '+')
+    # Remove leading +
+    if digits.startswith('+'):
+        digits = digits[1:]
+    # Handle South African numbers
+    if digits.startswith('27'):
+        return '+' + digits
+    elif digits.startswith('0'):
+        return '+27' + digits[1:]
+    else:
+        return '+27' + digits
 
 def create_jwt_token(payload: dict, secret: str, expires_minutes: int) -> str:
     import base64
@@ -158,6 +175,14 @@ class Default(WorkerEntrypoint):
             if path == "/healthz":
                 return json_response({"status": "ok"})
             
+            # New phone + password authentication
+            if path == "/auth/register" and method == "POST":
+                return await self.register_user(request)
+            
+            if path == "/auth/login" and method == "POST":
+                return await self.login_user(request)
+            
+            # Legacy OTP authentication (kept for backward compatibility)
             if path == "/auth/otp/request" and method == "POST":
                 return await self.request_otp(request)
             
@@ -297,9 +322,107 @@ class Default(WorkerEntrypoint):
         except Exception as e:
             return error_response(str(e), 500)
     
+    async def register_user(self, request):
+        """Register a new user with phone number and password"""
+        body = await request.json()
+        phone = normalize_phone(body.get("phone_number", ""))
+        password = body.get("password", "")
+        first_name = body.get("first_name")
+        last_name = body.get("last_name")
+        
+        if not phone or not password:
+            return error_response("Phone number and password are required", 400)
+        
+        if len(password) < 6:
+            return error_response("Password must be at least 6 characters", 400)
+        
+        # Check if user already exists
+        existing = await self.env.DB.prepare(
+            "SELECT * FROM users WHERE phone_number = ?"
+        ).bind(phone).first()
+        
+        if existing:
+            return error_response("User with this phone number already exists", 400)
+        
+        user_id = generate_uuid()
+        referral_code = generate_referral_code()
+        password_hash = hash_password(password)
+        
+        await self.env.DB.prepare(
+            """INSERT INTO users (id, phone_number, first_name, last_name, pin_hash, referral_code) 
+            VALUES (?, ?, ?, ?, ?, ?)"""
+        ).bind(user_id, phone, first_name, last_name, password_hash, referral_code).run()
+        
+        wallet_id = generate_uuid()
+        await self.env.DB.prepare(
+            "INSERT INTO wallets (id, user_id) VALUES (?, ?)"
+        ).bind(wallet_id, user_id).run()
+        
+        access_token = create_jwt_token({"sub": user_id, "type": "access"}, self.env.JWT_SECRET, 30)
+        refresh_token = create_jwt_token({"sub": user_id, "type": "refresh"}, self.env.JWT_SECRET, 10080)
+        
+        refresh_id = generate_uuid()
+        expires_at = (datetime.utcnow() + timedelta(days=7)).isoformat()
+        await self.env.DB.prepare(
+            "INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)"
+        ).bind(refresh_id, user_id, refresh_token, expires_at).run()
+        
+        return json_response({
+            "message": "Registration successful",
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "expires_in": 1800,
+            "user_id": user_id
+        })
+    
+    async def login_user(self, request):
+        """Login with phone number and password"""
+        body = await request.json()
+        phone = normalize_phone(body.get("phone_number", ""))
+        password = body.get("password", "")
+        
+        if not phone or not password:
+            return error_response("Phone number and password are required", 400)
+        
+        user = await self.env.DB.prepare(
+            "SELECT * FROM users WHERE phone_number = ?"
+        ).bind(phone).first()
+        
+        if not user:
+            return error_response("Invalid phone number or password", 401)
+        
+        # Check password (stored in pin_hash field)
+        if not user.pin_hash or not verify_password(password, str(user.pin_hash)):
+            return error_response("Invalid phone number or password", 401)
+        
+        user_id = str(user.id)
+        access_token = create_jwt_token({"sub": user_id, "type": "access"}, self.env.JWT_SECRET, 30)
+        refresh_token = create_jwt_token({"sub": user_id, "type": "refresh"}, self.env.JWT_SECRET, 10080)
+        
+        refresh_id = generate_uuid()
+        expires_at = (datetime.utcnow() + timedelta(days=7)).isoformat()
+        await self.env.DB.prepare(
+            "INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)"
+        ).bind(refresh_id, user_id, refresh_token, expires_at).run()
+        
+        # Check if user is an agent
+        agent = await self.env.DB.prepare(
+            "SELECT * FROM agents WHERE user_id = ?"
+        ).bind(user_id).first()
+        
+        return json_response({
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "expires_in": 1800,
+            "user_id": user_id,
+            "is_agent": agent is not None
+        })
+    
     async def request_otp(self, request):
         body = await request.json()
-        phone = body.get("phone_number")
+        phone = normalize_phone(body.get("phone_number", ""))
         
         otp_code = generate_otp()
         otp_id = generate_uuid()
@@ -915,41 +1038,20 @@ class Default(WorkerEntrypoint):
         })
     
     async def register_agent(self, request):
+        """Register as an agent - requires JWT authentication"""
+        user = await get_current_user(request, self.env)
+        if not user:
+            return error_response("Not authenticated", 401)
+        
         body = await request.json()
-        phone = body.get("phone_number")
-        otp_code = body.get("otp_code")
         business_name = body.get("business_name")
         business_type = body.get("business_type", "OTHER")
         address = body.get("address")
         
-        otp = await self.env.DB.prepare(
-            "SELECT * FROM otp_codes WHERE phone_number = ? AND code = ? AND used = 0 AND expires_at > ?"
-        ).bind(phone, otp_code, datetime.utcnow().isoformat()).first()
+        if not business_name:
+            return error_response("Business name is required", 400)
         
-        if not otp:
-            return error_response("Invalid or expired OTP", 400)
-        
-        await self.env.DB.prepare("UPDATE otp_codes SET used = 1 WHERE id = ?").bind(str(otp.id)).run()
-        
-        user = await self.env.DB.prepare(
-            "SELECT * FROM users WHERE phone_number = ?"
-        ).bind(phone).first()
-        
-        user_id = None
-        if not user:
-            user_id = generate_uuid()
-            referral_code = generate_referral_code()
-            
-            await self.env.DB.prepare(
-                "INSERT INTO users (id, phone_number, referral_code) VALUES (?, ?, ?)"
-            ).bind(user_id, phone, referral_code).run()
-            
-            wallet_id = generate_uuid()
-            await self.env.DB.prepare(
-                "INSERT INTO wallets (id, user_id) VALUES (?, ?)"
-            ).bind(wallet_id, user_id).run()
-        else:
-            user_id = str(user.id)
+        user_id = str(user.id)
         
         existing_agent = await self.env.DB.prepare(
             "SELECT * FROM agents WHERE user_id = ?"
@@ -970,14 +1072,9 @@ class Default(WorkerEntrypoint):
             business_type, address, "ACTIVE"
         ).run()
         
-        access_token = create_jwt_token({"sub": user_id, "type": "access"}, self.env.JWT_SECRET, 30)
-        refresh_token = create_jwt_token({"sub": user_id, "type": "refresh"}, self.env.JWT_SECRET, 10080)
-        
         return json_response({
             "message": "Agent registered successfully",
             "agent_code": agent_code,
-            "access_token": access_token,
-            "refresh_token": refresh_token,
             "user_id": user_id
         })
     
