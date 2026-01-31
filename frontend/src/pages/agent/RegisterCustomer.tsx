@@ -63,9 +63,9 @@ export default function RegisterCustomerPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-6">
+    <div className="min-h-screen bg-slate-900 pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 text-white p-6 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-indigo-500 via-purple-600 to-violet-700 text-white p-6 rounded-b-3xl">
         <div className="flex items-center gap-3">
           <Button 
             variant="ghost" 
@@ -80,51 +80,51 @@ export default function RegisterCustomerPage() {
       </div>
 
       <div className="px-4 mt-4">
-        <Card>
+        <Card className="bg-slate-800 border-slate-700">
           <CardContent className="p-4 space-y-4">
             <div>
-              <label className="text-sm font-medium">Phone Number *</label>
+              <label className="text-sm font-medium text-slate-300">Phone Number *</label>
               <Input
                 type="tel"
                 placeholder="081 234 5678"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="mt-1"
+                className="mt-1 bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
               />
             </div>
             <div>
-              <label className="text-sm font-medium">First Name *</label>
+              <label className="text-sm font-medium text-slate-300">First Name *</label>
               <Input
                 type="text"
                 placeholder="Enter first name"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                className="mt-1"
+                className="mt-1 bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Last Name</label>
+              <label className="text-sm font-medium text-slate-300">Last Name</label>
               <Input
                 type="text"
                 placeholder="Enter last name (optional)"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                className="mt-1"
+                className="mt-1 bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
               />
             </div>
             
-            <div className="bg-green-50 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-green-700">
+            <div className="bg-emerald-500/20 rounded-xl p-4 border border-emerald-500/30">
+              <div className="flex items-center gap-2 text-emerald-400">
                 <Gift className="w-5 h-5" />
                 <span className="font-medium">Referral Bonus</span>
               </div>
-              <p className="text-sm text-green-600 mt-1">
+              <p className="text-sm text-emerald-300/80 mt-1">
                 Earn R10 for every new customer you register!
               </p>
             </div>
 
             <Button
-              className="w-full h-12 bg-indigo-600 hover:bg-indigo-700"
+              className="w-full h-12 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
               onClick={handleRegister}
               disabled={loading || !phone || !firstName}
             >
@@ -137,23 +137,23 @@ export default function RegisterCustomerPage() {
 
       {/* Success Dialog */}
       <Dialog open={!!result} onOpenChange={() => setResult(null)}>
-        <DialogContent className="max-w-sm mx-4">
+        <DialogContent className="max-w-sm mx-4 bg-slate-800 border-slate-700">
           <DialogHeader>
-            <DialogTitle className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Check className="w-8 h-8 text-green-600" />
+            <DialogTitle className="text-center text-white">
+              <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Check className="w-8 h-8 text-emerald-400" />
               </div>
               Customer Registered!
             </DialogTitle>
           </DialogHeader>
           <div className="py-4 text-center">
-            <p className="text-gray-600 mb-4">
+            <p className="text-slate-400 mb-4">
               {firstName} {lastName} has been registered successfully.
             </p>
             {result && result.bonus > 0 && (
-              <div className="bg-green-50 rounded-lg p-4">
-                <Gift className="w-8 h-8 mx-auto text-green-600 mb-2" />
-                <p className="text-green-700 font-medium">
+              <div className="bg-emerald-500/20 rounded-xl p-4 border border-emerald-500/30">
+                <Gift className="w-8 h-8 mx-auto text-emerald-400 mb-2" />
+                <p className="text-emerald-400 font-medium">
                   You earned {formatCurrency(result.bonus)} referral bonus!
                 </p>
               </div>
@@ -162,7 +162,7 @@ export default function RegisterCustomerPage() {
           <DialogFooter className="flex gap-2">
             <Button 
               variant="outline"
-              className="flex-1"
+              className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700"
               onClick={() => {
                 setResult(null);
                 setPhone('');
@@ -173,7 +173,7 @@ export default function RegisterCustomerPage() {
               Register Another
             </Button>
             <Button 
-              className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+              className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
               onClick={() => navigate('/agent')}
             >
               Done

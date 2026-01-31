@@ -100,16 +100,16 @@ export default function SellElectricityPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-yellow-600" />
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-6">
+    <div className="min-h-screen bg-slate-900 pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-yellow-500 to-orange-600 text-white p-6 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-amber-500 via-orange-500 to-red-600 text-white p-6 rounded-b-3xl">
         <div className="flex items-center gap-3">
           <Button 
             variant="ghost" 
@@ -125,31 +125,31 @@ export default function SellElectricityPage() {
 
       <div className="px-4 mt-4 space-y-4">
         {/* Customer Details */}
-        <Card>
+        <Card className="bg-slate-800 border-slate-700">
           <CardContent className="p-4 space-y-4">
             <div>
-              <label className="text-sm font-medium text-gray-500">Customer Phone Number</label>
+              <label className="text-sm font-medium text-slate-400">Customer Phone Number</label>
               <div className="relative mt-2">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                 <Input
                   type="tel"
                   placeholder="081 234 5678"
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
                 />
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-500">Meter Number</label>
+              <label className="text-sm font-medium text-slate-400">Meter Number</label>
               <div className="relative mt-2">
-                <Zap className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Zap className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                 <Input
                   type="text"
                   placeholder="Enter meter number"
                   value={meterNumber}
                   onChange={(e) => setMeterNumber(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
                 />
               </div>
             </div>
@@ -158,14 +158,14 @@ export default function SellElectricityPage() {
 
         {/* Package Selection */}
         <div className="space-y-3">
-          <h2 className="font-semibold text-gray-700">Select Package</h2>
+          <h2 className="font-semibold text-slate-300">Select Package</h2>
           {packages.map((pkg) => (
             <Card 
               key={pkg.id} 
-              className={`cursor-pointer transition-all ${
+              className={`cursor-pointer transition-all bg-slate-800 border-slate-700 ${
                 selectedPackage?.id === pkg.id 
-                  ? 'ring-2 ring-yellow-500 bg-yellow-50' 
-                  : 'hover:shadow-md'
+                  ? 'ring-2 ring-amber-500 bg-amber-500/10' 
+                  : 'hover:shadow-lg'
               }`}
               onClick={() => {
                 setSelectedPackage(pkg);
@@ -175,26 +175,26 @@ export default function SellElectricityPage() {
               <CardContent className="p-4">
                 <div className="flex justify-between items-start">
                   <div className="flex gap-3">
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                      selectedPackage?.id === pkg.id ? 'bg-yellow-500' : 'bg-yellow-100'
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${
+                      selectedPackage?.id === pkg.id ? 'bg-gradient-to-br from-amber-500 to-orange-600' : 'bg-slate-700'
                     }`}>
                       <Zap className={`w-6 h-6 ${
-                        selectedPackage?.id === pkg.id ? 'text-white' : 'text-yellow-600'
+                        selectedPackage?.id === pkg.id ? 'text-white' : 'text-amber-400'
                       }`} />
                     </div>
                     <div>
-                      <h3 className="font-semibold">{pkg.name}</h3>
-                      <div className="flex items-center gap-1 mt-1 text-sm text-gray-500">
+                      <h3 className="font-semibold text-white">{pkg.name}</h3>
+                      <div className="flex items-center gap-1 mt-1 text-sm text-slate-500">
                         <Battery className="w-4 h-4" />
                         {pkg.kwh_amount} kWh
                       </div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-bold text-yellow-600">
+                    <p className="text-lg font-bold text-amber-400">
                       {formatCurrency(pkg.price)}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-slate-500">
                       {formatCurrency(pkg.price / pkg.kwh_amount)}/kWh
                     </p>
                   </div>
@@ -206,23 +206,23 @@ export default function SellElectricityPage() {
 
         {/* Cash Received */}
         {selectedPackage && (
-          <Card>
+          <Card className="bg-slate-800 border-slate-700">
             <CardContent className="p-4">
-              <label className="text-sm font-medium text-gray-500">Cash Received</label>
+              <label className="text-sm font-medium text-slate-400">Cash Received</label>
               <div className="relative mt-2">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg font-bold text-gray-400">R</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-500">R</span>
                 <Input
                   type="number"
                   placeholder="0.00"
                   value={cashReceived}
                   onChange={(e) => setCashReceived(e.target.value)}
-                  className="text-xl font-bold pl-8"
+                  className="text-xl font-bold pl-8 bg-slate-700 border-slate-600 text-white"
                 />
               </div>
               {change > 0 && (
-                <div className="mt-3 p-3 bg-green-50 rounded-lg">
-                  <p className="text-sm text-gray-500">Change to give</p>
-                  <p className="text-xl font-bold text-green-600">{formatCurrency(change)}</p>
+                <div className="mt-3 p-3 bg-emerald-500/20 rounded-xl border border-emerald-500/30">
+                  <p className="text-sm text-slate-400">Change to give</p>
+                  <p className="text-xl font-bold text-emerald-400">{formatCurrency(change)}</p>
                 </div>
               )}
             </CardContent>
@@ -231,7 +231,7 @@ export default function SellElectricityPage() {
 
         {/* Sell Button */}
         <Button
-          className="w-full h-14 text-lg bg-yellow-600 hover:bg-yellow-700"
+          className="w-full h-14 text-lg bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
           onClick={handleSell}
           disabled={processing || !selectedPackage || !customerPhone || !meterNumber || parseFloat(cashReceived) < (selectedPackage?.price || 0)}
         >
@@ -242,34 +242,34 @@ export default function SellElectricityPage() {
 
       {/* Success Dialog */}
       <Dialog open={!!result} onOpenChange={() => setResult(null)}>
-        <DialogContent className="max-w-sm mx-4">
+        <DialogContent className="max-w-sm mx-4 bg-slate-800 border-slate-700">
           <DialogHeader>
-            <DialogTitle className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Check className="w-8 h-8 text-green-600" />
+            <DialogTitle className="text-center text-white">
+              <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Check className="w-8 h-8 text-emerald-400" />
               </div>
               Sale Complete!
             </DialogTitle>
-            <DialogDescription className="text-center">
-              Commission earned: <span className="font-bold text-green-600">{formatCurrency(result?.commission || 0)}</span>
+            <DialogDescription className="text-center text-slate-400">
+              Commission earned: <span className="font-bold text-emerald-400">{formatCurrency(result?.commission || 0)}</span>
             </DialogDescription>
           </DialogHeader>
           {result && (
             <div className="py-4">
-              <div className="bg-yellow-50 rounded-lg p-4 text-center">
-                <Zap className="w-12 h-12 mx-auto text-yellow-600 mb-2" />
-                <p className="text-2xl font-bold">{result.kwh} kWh</p>
-                <p className="text-gray-600">added to meter</p>
+              <div className="bg-amber-500/20 rounded-xl p-4 text-center border border-amber-500/30">
+                <Zap className="w-12 h-12 mx-auto text-amber-400 mb-2" />
+                <p className="text-2xl font-bold text-white">{result.kwh} kWh</p>
+                <p className="text-slate-400">added to meter</p>
               </div>
               <div className="mt-4 text-center">
-                <p className="text-sm text-gray-500">Reference</p>
-                <p className="font-mono">{result.reference}</p>
+                <p className="text-sm text-slate-500">Reference</p>
+                <p className="font-mono text-white">{result.reference}</p>
               </div>
             </div>
           )}
           <DialogFooter>
             <Button 
-              className="w-full bg-yellow-600 hover:bg-yellow-700"
+              className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
               onClick={() => {
                 setResult(null);
                 setSelectedPackage(null);

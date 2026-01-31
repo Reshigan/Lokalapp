@@ -54,19 +54,19 @@ export default function TopupPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-slate-800 border-slate-700">
           <CardContent className="p-6 text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Check className="w-8 h-8 text-green-600" />
+            <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Check className="w-8 h-8 text-emerald-400" />
             </div>
-            <h2 className="text-xl font-bold mb-2">Top-up Initiated!</h2>
-            <p className="text-gray-600 mb-6">
+            <h2 className="text-xl font-bold mb-2 text-white">Top-up Initiated!</h2>
+            <p className="text-slate-400 mb-6">
               Your top-up of {formatCurrency(parseFloat(amount))} has been initiated.
               In a production environment, you would be redirected to complete payment.
             </p>
             <Button 
-              className="w-full bg-green-600 hover:bg-green-700"
+              className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700"
               onClick={() => navigate('/user')}
             >
               Back to Dashboard
@@ -78,9 +78,9 @@ export default function TopupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-6">
+    <div className="min-h-screen bg-slate-900 pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-green-600 to-green-800 text-white p-6 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 text-white p-6 rounded-b-3xl">
         <div className="flex items-center gap-3">
           <Button 
             variant="ghost" 
@@ -96,20 +96,20 @@ export default function TopupPage() {
 
       <div className="px-4 mt-4 space-y-4">
         {/* Amount Input */}
-        <Card>
+        <Card className="bg-slate-800 border-slate-700">
           <CardContent className="p-4">
-            <label className="text-sm font-medium text-gray-500">Enter Amount</label>
+            <label className="text-sm font-medium text-slate-400">Enter Amount</label>
             <div className="relative mt-2">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-2xl font-bold text-gray-400">R</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-2xl font-bold text-slate-500">R</span>
               <Input
                 type="number"
                 placeholder="0.00"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="text-3xl font-bold pl-10 h-16 text-center"
+                className="text-3xl font-bold pl-10 h-16 text-center bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
               />
             </div>
-            <p className="text-xs text-gray-500 mt-2">Minimum: R10</p>
+            <p className="text-xs text-slate-500 mt-2">Minimum: R10</p>
           </CardContent>
         </Card>
 
@@ -119,7 +119,7 @@ export default function TopupPage() {
             <Button
               key={preset}
               variant={amount === preset.toString() ? 'default' : 'outline'}
-              className={amount === preset.toString() ? 'bg-green-600' : ''}
+              className={amount === preset.toString() ? 'bg-gradient-to-r from-violet-600 to-purple-600' : 'border-slate-600 text-slate-300 hover:bg-slate-700'}
               onClick={() => setAmount(preset.toString())}
             >
               R{preset}
@@ -128,52 +128,52 @@ export default function TopupPage() {
         </div>
 
         {/* Payment Method */}
-        <Card>
+        <Card className="bg-slate-800 border-slate-700">
           <CardContent className="p-4">
-            <label className="text-sm font-medium text-gray-500 mb-3 block">Payment Method</label>
+            <label className="text-sm font-medium text-slate-400 mb-3 block">Payment Method</label>
             <div className="space-y-2">
               <button
-                className={`w-full p-4 rounded-lg border-2 flex items-center gap-3 transition-colors ${
+                className={`w-full p-4 rounded-xl border-2 flex items-center gap-3 transition-colors ${
                   paymentMethod === 'CARD' 
-                    ? 'border-green-600 bg-green-50' 
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-violet-500 bg-violet-500/10' 
+                    : 'border-slate-600 hover:border-slate-500 bg-slate-700/50'
                 }`}
                 onClick={() => setPaymentMethod('CARD')}
               >
-                <CreditCard className={`w-6 h-6 ${paymentMethod === 'CARD' ? 'text-green-600' : 'text-gray-400'}`} />
+                <CreditCard className={`w-6 h-6 ${paymentMethod === 'CARD' ? 'text-violet-400' : 'text-slate-400'}`} />
                 <div className="text-left">
-                  <p className="font-medium">Card Payment</p>
-                  <p className="text-sm text-gray-500">Visa, Mastercard</p>
+                  <p className="font-medium text-white">Card Payment</p>
+                  <p className="text-sm text-slate-400">Visa, Mastercard</p>
                 </div>
               </button>
               
               <button
-                className={`w-full p-4 rounded-lg border-2 flex items-center gap-3 transition-colors ${
+                className={`w-full p-4 rounded-xl border-2 flex items-center gap-3 transition-colors ${
                   paymentMethod === 'EFT' 
-                    ? 'border-green-600 bg-green-50' 
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-violet-500 bg-violet-500/10' 
+                    : 'border-slate-600 hover:border-slate-500 bg-slate-700/50'
                 }`}
                 onClick={() => setPaymentMethod('EFT')}
               >
-                <Building className={`w-6 h-6 ${paymentMethod === 'EFT' ? 'text-green-600' : 'text-gray-400'}`} />
+                <Building className={`w-6 h-6 ${paymentMethod === 'EFT' ? 'text-violet-400' : 'text-slate-400'}`} />
                 <div className="text-left">
-                  <p className="font-medium">Bank Transfer (EFT)</p>
-                  <p className="text-sm text-gray-500">Instant EFT</p>
+                  <p className="font-medium text-white">Bank Transfer (EFT)</p>
+                  <p className="text-sm text-slate-400">Instant EFT</p>
                 </div>
               </button>
               
               <button
-                className={`w-full p-4 rounded-lg border-2 flex items-center gap-3 transition-colors ${
+                className={`w-full p-4 rounded-xl border-2 flex items-center gap-3 transition-colors ${
                   paymentMethod === 'MOBILE' 
-                    ? 'border-green-600 bg-green-50' 
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-violet-500 bg-violet-500/10' 
+                    : 'border-slate-600 hover:border-slate-500 bg-slate-700/50'
                 }`}
                 onClick={() => setPaymentMethod('MOBILE')}
               >
-                <Smartphone className={`w-6 h-6 ${paymentMethod === 'MOBILE' ? 'text-green-600' : 'text-gray-400'}`} />
+                <Smartphone className={`w-6 h-6 ${paymentMethod === 'MOBILE' ? 'text-violet-400' : 'text-slate-400'}`} />
                 <div className="text-left">
-                  <p className="font-medium">Mobile Money</p>
-                  <p className="text-sm text-gray-500">SnapScan, Zapper</p>
+                  <p className="font-medium text-white">Mobile Money</p>
+                  <p className="text-sm text-slate-400">SnapScan, Zapper</p>
                 </div>
               </button>
             </div>
@@ -182,7 +182,7 @@ export default function TopupPage() {
 
         {/* Top Up Button */}
         <Button
-          className="w-full h-14 text-lg bg-green-600 hover:bg-green-700"
+          className="w-full h-14 text-lg bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700"
           onClick={handleTopup}
           disabled={loading || !amount || parseFloat(amount) < 10}
         >

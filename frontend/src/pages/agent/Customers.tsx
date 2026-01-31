@@ -53,9 +53,9 @@ export default function CustomersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-6">
+    <div className="min-h-screen bg-slate-900 pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 text-white p-6 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-indigo-500 via-purple-600 to-violet-700 text-white p-6 rounded-b-3xl">
         <div className="flex items-center gap-3 mb-4">
           <Button 
             variant="ghost" 
@@ -91,7 +91,7 @@ export default function CustomersPage() {
             />
           </div>
           <Button 
-            className="w-full bg-white text-indigo-700 hover:bg-indigo-50"
+            className="w-full bg-white text-indigo-700 hover:bg-indigo-50 shadow-lg"
             onClick={handleSearch}
             disabled={loading}
           >
@@ -105,7 +105,7 @@ export default function CustomersPage() {
         {/* Register New Customer Button */}
         <Button 
           variant="outline"
-          className="w-full mb-4"
+          className="w-full mb-4 border-slate-600 text-slate-300 hover:bg-slate-700"
           onClick={() => navigate('/agent/customers/new')}
         >
           <UserPlus className="w-4 h-4 mr-2" />
@@ -117,15 +117,15 @@ export default function CustomersPage() {
           <>
             {loading ? (
               <div className="flex justify-center py-8">
-                <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+                <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
               </div>
             ) : customers.length === 0 ? (
-              <Card>
-                <CardContent className="p-6 text-center text-gray-500">
-                  <User className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+              <Card className="bg-slate-800 border-slate-700">
+                <CardContent className="p-6 text-center text-slate-400">
+                  <User className="w-12 h-12 mx-auto mb-2 text-slate-600" />
                   <p>No customers found</p>
                   <Button 
-                    className="mt-4 bg-indigo-600 hover:bg-indigo-700"
+                    className="mt-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
                     onClick={() => navigate('/agent/customers/new')}
                   >
                     <Plus className="w-4 h-4 mr-2" />
@@ -135,17 +135,17 @@ export default function CustomersPage() {
               </Card>
             ) : (
               <div className="space-y-3">
-                <p className="text-sm text-gray-500">{customers.length} customer(s) found</p>
+                <p className="text-sm text-slate-400">{customers.length} customer(s) found</p>
                 {customers.map((customer) => (
-                  <Card key={customer.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                  <Card key={customer.id} className="cursor-pointer hover:shadow-lg transition-shadow bg-slate-800 border-slate-700">
                     <CardContent className="p-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-                          <User className="w-6 h-6 text-indigo-600" />
+                        <div className="w-12 h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center">
+                          <User className="w-6 h-6 text-indigo-400" />
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <h3 className="font-semibold">
+                            <h3 className="font-semibold text-white">
                               {customer.first_name || customer.last_name 
                                 ? `${customer.first_name || ''} ${customer.last_name || ''}`.trim()
                                 : 'Unknown'}
@@ -154,7 +154,7 @@ export default function CustomersPage() {
                               {customer.kyc_status}
                             </Badge>
                           </div>
-                          <p className="text-sm text-gray-500">{customer.phone_number}</p>
+                          <p className="text-sm text-slate-400">{customer.phone_number}</p>
                         </div>
                       </div>
                     </CardContent>

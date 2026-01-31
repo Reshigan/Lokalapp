@@ -101,9 +101,9 @@ export default function AdminAgentsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-6">
+    <div className="min-h-screen bg-slate-900 pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-red-600 to-red-800 text-white p-6 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-rose-500 via-pink-600 to-purple-700 text-white p-6 rounded-b-3xl">
         <div className="flex items-center gap-3">
           <Button 
             variant="ghost" 
@@ -118,16 +118,16 @@ export default function AdminAgentsPage() {
       </div>
 
       <div className="px-4 mt-4">
-        <p className="text-sm text-gray-500 mb-3">{total} agents total</p>
+        <p className="text-sm text-slate-400 mb-3">{total} agents total</p>
         
         {loading ? (
           <div className="flex justify-center py-8">
-            <Loader2 className="w-8 h-8 animate-spin text-red-600" />
+            <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
           </div>
         ) : agents.length === 0 ? (
-          <Card>
-            <CardContent className="p-6 text-center text-gray-500">
-              <UserCheck className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+          <Card className="bg-slate-800 border-slate-700">
+            <CardContent className="p-6 text-center text-slate-400">
+              <UserCheck className="w-12 h-12 mx-auto mb-2 text-slate-600" />
               <p>No agents found</p>
             </CardContent>
           </Card>
@@ -136,23 +136,23 @@ export default function AdminAgentsPage() {
             {agents.map((agent) => (
               <Card 
                 key={agent.id} 
-                className="cursor-pointer hover:shadow-md transition-shadow"
+                className="cursor-pointer hover:shadow-lg transition-shadow bg-slate-800 border-slate-700"
                 onClick={() => setSelectedAgent(agent)}
               >
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-                      <UserCheck className="w-6 h-6 text-indigo-600" />
+                    <div className="w-12 h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center">
+                      <UserCheck className="w-6 h-6 text-indigo-400" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold truncate">{agent.business_name}</h3>
+                        <h3 className="font-semibold truncate text-white">{agent.business_name}</h3>
                         <Badge className={getTierColor(agent.tier)}>
                           {agent.tier}
                         </Badge>
                       </div>
-                      <p className="text-sm text-gray-500">{agent.agent_code}</p>
-                      <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                      <p className="text-sm text-slate-400">{agent.agent_code}</p>
+                      <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
                         <span className="flex items-center gap-1">
                           <TrendingUp className="w-3 h-3" />
                           {formatCurrency(agent.total_sales)}
@@ -174,15 +174,17 @@ export default function AdminAgentsPage() {
                 size="sm"
                 disabled={page === 1}
                 onClick={() => setPage(p => p - 1)}
+                className="border-slate-600 text-slate-300 hover:bg-slate-700"
               >
                 Previous
               </Button>
-              <span className="px-4 py-2 text-sm">Page {page}</span>
+              <span className="px-4 py-2 text-sm text-slate-400">Page {page}</span>
               <Button
                 variant="outline"
                 size="sm"
                 disabled={agents.length < 20}
                 onClick={() => setPage(p => p + 1)}
+                className="border-slate-600 text-slate-300 hover:bg-slate-700"
               >
                 Next
               </Button>
@@ -193,18 +195,18 @@ export default function AdminAgentsPage() {
 
       {/* Agent Detail Dialog */}
       <Dialog open={!!selectedAgent} onOpenChange={() => setSelectedAgent(null)}>
-        <DialogContent className="max-w-sm mx-4">
+        <DialogContent className="max-w-sm mx-4 bg-slate-800 border-slate-700">
           <DialogHeader>
-            <DialogTitle>Agent Details</DialogTitle>
+            <DialogTitle className="text-white">Agent Details</DialogTitle>
           </DialogHeader>
           {selectedAgent && (
             <div className="py-4 space-y-4">
               <div className="text-center">
-                <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <UserCheck className="w-8 h-8 text-indigo-600" />
+                <div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <UserCheck className="w-8 h-8 text-indigo-400" />
                 </div>
-                <h3 className="font-bold text-lg">{selectedAgent.business_name}</h3>
-                <p className="text-gray-500">{selectedAgent.agent_code}</p>
+                <h3 className="font-bold text-lg text-white">{selectedAgent.business_name}</h3>
+                <p className="text-slate-400">{selectedAgent.agent_code}</p>
                 <Badge className={`mt-2 ${getTierColor(selectedAgent.tier)}`}>
                   {selectedAgent.tier}
                 </Badge>
@@ -212,41 +214,41 @@ export default function AdminAgentsPage() {
               
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Business Type</span>
-                  <span>{selectedAgent.business_type}</span>
+                  <span className="text-slate-400">Business Type</span>
+                  <span className="text-white">{selectedAgent.business_type}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Owner</span>
-                  <span>{selectedAgent.user_name}</span>
+                  <span className="text-slate-400">Owner</span>
+                  <span className="text-white">{selectedAgent.user_name}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Phone</span>
-                  <span>{selectedAgent.user_phone}</span>
+                  <span className="text-slate-400">Phone</span>
+                  <span className="text-white">{selectedAgent.user_phone}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Float Balance</span>
-                  <span className="font-semibold">{formatCurrency(selectedAgent.float_balance)}</span>
+                  <span className="text-slate-400">Float Balance</span>
+                  <span className="font-semibold text-white">{formatCurrency(selectedAgent.float_balance)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Commission Balance</span>
-                  <span className="font-semibold text-green-600">{formatCurrency(selectedAgent.commission_balance)}</span>
+                  <span className="text-slate-400">Commission Balance</span>
+                  <span className="font-semibold text-emerald-400">{formatCurrency(selectedAgent.commission_balance)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Total Sales</span>
-                  <span className="font-semibold">{formatCurrency(selectedAgent.total_sales)}</span>
+                  <span className="text-slate-400">Total Sales</span>
+                  <span className="font-semibold text-white">{formatCurrency(selectedAgent.total_sales)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Monthly Sales</span>
-                  <span>{formatCurrency(selectedAgent.monthly_sales)}</span>
+                  <span className="text-slate-400">Monthly Sales</span>
+                  <span className="text-white">{formatCurrency(selectedAgent.monthly_sales)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Joined</span>
-                  <span>{formatDate(selectedAgent.created_at)}</span>
+                  <span className="text-slate-400">Joined</span>
+                  <span className="text-white">{formatDate(selectedAgent.created_at)}</span>
                 </div>
               </div>
 
-              <div className="border-t pt-4">
-                <p className="text-sm font-medium text-gray-500 mb-2">
+              <div className="border-t border-slate-700 pt-4">
+                <p className="text-sm font-medium text-slate-400 mb-2">
                   <Award className="w-4 h-4 inline mr-1" />
                   Change Tier
                 </p>
@@ -256,7 +258,7 @@ export default function AdminAgentsPage() {
                       key={tier}
                       variant={selectedAgent.tier === tier ? 'default' : 'outline'}
                       size="sm"
-                      className={selectedAgent.tier === tier ? getTierColor(tier) : ''}
+                      className={selectedAgent.tier === tier ? getTierColor(tier) : 'border-slate-600 text-slate-300 hover:bg-slate-700'}
                       onClick={() => handleUpdateTier(tier)}
                       disabled={updating || selectedAgent.tier === tier}
                     >
@@ -264,14 +266,14 @@ export default function AdminAgentsPage() {
                     </Button>
                   ))}
                 </div>
-                <p className="text-xs text-gray-400 mt-2">
+                <p className="text-xs text-slate-500 mt-2">
                   Commission rates: Bronze 5%, Silver 7%, Gold 10%, Platinum 12%
                 </p>
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedAgent(null)}>
+            <Button variant="outline" onClick={() => setSelectedAgent(null)} className="border-slate-600 text-slate-300 hover:bg-slate-700">
               Close
             </Button>
           </DialogFooter>

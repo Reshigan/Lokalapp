@@ -80,16 +80,16 @@ export default function AdminProductsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-red-600" />
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-6">
+    <div className="min-h-screen bg-slate-900 pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-red-600 to-red-800 text-white p-6 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-rose-500 via-pink-600 to-purple-700 text-white p-6 rounded-b-3xl">
         <div className="flex items-center gap-3 mb-4">
           <Button 
             variant="ghost" 
@@ -108,7 +108,7 @@ export default function AdminProductsPage() {
             variant={activeTab === 'wifi' ? 'secondary' : 'ghost'}
             size="sm"
             onClick={() => setActiveTab('wifi')}
-            className={activeTab === 'wifi' ? 'bg-white text-red-700' : 'text-white hover:bg-white/20'}
+            className={activeTab === 'wifi' ? 'bg-white text-rose-700 shadow-lg' : 'text-white hover:bg-white/20'}
           >
             <Wifi className="w-4 h-4 mr-1" />
             WiFi ({wifiPackages.length})
@@ -117,7 +117,7 @@ export default function AdminProductsPage() {
             variant={activeTab === 'electricity' ? 'secondary' : 'ghost'}
             size="sm"
             onClick={() => setActiveTab('electricity')}
-            className={activeTab === 'electricity' ? 'bg-white text-red-700' : 'text-white hover:bg-white/20'}
+            className={activeTab === 'electricity' ? 'bg-white text-rose-700 shadow-lg' : 'text-white hover:bg-white/20'}
           >
             <Zap className="w-4 h-4 mr-1" />
             Electricity ({electricityPackages.length})
@@ -129,29 +129,29 @@ export default function AdminProductsPage() {
         {activeTab === 'wifi' ? (
           <div className="space-y-3">
             {wifiPackages.map((pkg) => (
-              <Card key={pkg.id}>
+              <Card key={pkg.id} className="bg-slate-800 border-slate-700">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex gap-3">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${pkg.is_active ? 'bg-blue-100' : 'bg-gray-100'}`}>
-                        <Wifi className={`w-6 h-6 ${pkg.is_active ? 'text-blue-600' : 'text-gray-400'}`} />
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${pkg.is_active ? 'bg-cyan-500/20' : 'bg-slate-700'}`}>
+                        <Wifi className={`w-6 h-6 ${pkg.is_active ? 'text-cyan-400' : 'text-slate-500'}`} />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <h3 className="font-semibold">{pkg.name}</h3>
+                          <h3 className="font-semibold text-white">{pkg.name}</h3>
                           {!pkg.is_active && (
-                            <Badge variant="secondary">Inactive</Badge>
+                            <Badge variant="secondary" className="bg-slate-600 text-slate-300">Inactive</Badge>
                           )}
                         </div>
-                        <p className="text-sm text-gray-500">{pkg.description}</p>
-                        <div className="flex gap-3 mt-1 text-xs text-gray-500">
+                        <p className="text-sm text-slate-400">{pkg.description}</p>
+                        <div className="flex gap-3 mt-1 text-xs text-slate-500">
                           <span>{formatData(pkg.data_limit_mb)}</span>
                           <span>{formatValidity(pkg.validity_hours)}</span>
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-bold text-blue-600">
+                      <p className="text-lg font-bold text-cyan-400">
                         {formatCurrency(pkg.price)}
                       </p>
                     </div>
@@ -163,29 +163,29 @@ export default function AdminProductsPage() {
         ) : (
           <div className="space-y-3">
             {electricityPackages.map((pkg) => (
-              <Card key={pkg.id}>
+              <Card key={pkg.id} className="bg-slate-800 border-slate-700">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex gap-3">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${pkg.is_active ? 'bg-yellow-100' : 'bg-gray-100'}`}>
-                        <Zap className={`w-6 h-6 ${pkg.is_active ? 'text-yellow-600' : 'text-gray-400'}`} />
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${pkg.is_active ? 'bg-amber-500/20' : 'bg-slate-700'}`}>
+                        <Zap className={`w-6 h-6 ${pkg.is_active ? 'text-amber-400' : 'text-slate-500'}`} />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <h3 className="font-semibold">{pkg.name}</h3>
+                          <h3 className="font-semibold text-white">{pkg.name}</h3>
                           {!pkg.is_active && (
-                            <Badge variant="secondary">Inactive</Badge>
+                            <Badge variant="secondary" className="bg-slate-600 text-slate-300">Inactive</Badge>
                           )}
                         </div>
-                        <p className="text-sm text-gray-500">{pkg.description}</p>
-                        <p className="text-xs text-gray-500 mt-1">{pkg.kwh_amount} kWh</p>
+                        <p className="text-sm text-slate-400">{pkg.description}</p>
+                        <p className="text-xs text-slate-500 mt-1">{pkg.kwh_amount} kWh</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-bold text-yellow-600">
+                      <p className="text-lg font-bold text-amber-400">
                         {formatCurrency(pkg.price)}
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-slate-500">
                         {formatCurrency(pkg.price / pkg.kwh_amount)}/kWh
                       </p>
                     </div>

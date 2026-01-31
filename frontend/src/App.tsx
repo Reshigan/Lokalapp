@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
+import RegisterAgent from './pages/RegisterAgent';
 import UserDashboard from './pages/user/Dashboard';
 import WiFiPage from './pages/user/WiFi';
 import ElectricityPage from './pages/user/Electricity';
@@ -53,6 +54,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={isAuthenticated ? <Navigate to="/user" replace /> : <Login />} />
+      <Route path="/register/agent" element={<RegisterAgent />} />
       
       {/* User Routes */}
       <Route path="/user" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />

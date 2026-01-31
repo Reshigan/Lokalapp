@@ -5,23 +5,30 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
-import { Smartphone, Lock, ArrowRight, Loader2, UserPlus } from 'lucide-react';
+import { 
+  ArrowRight, 
+  Loader2, 
+  Building2, 
+  ArrowLeft,
+  CheckCircle
+} from 'lucide-react';
 
-export default function Login() {
+export default function RegisterAgent() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [step, setStep] = useState<'phone' | 'otp' | 'pin'>('phone');
+  const [step, setStep] = useState<'phone' | 'otp' | 'details' | 'success'>('phone');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
-  const [pin, setPin] = useState('');
+  const [businessName, setBusinessName] = useState('');
+  const [businessType, setBusinessType] = useState('');
+  const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [debugOtp, setDebugOtp] = useState('');
+  const [agentCode, setAgentCode] = useState('');
 
   const formatPhone = (value: string) => {
-    // Remove non-digits
     const digits = value.replace(/\D/g, '');
-    // Format as SA number
     if (digits.startsWith('27')) {
       return '+' + digits;
     } else if (digits.startsWith('0')) {
@@ -64,16 +71,20 @@ export default function Login() {
     
     if (data) {
       await login(data.access_token, data.refresh_token);
-      navigate('/');
+      setStep('details');
     }
   };
 
-  const handlePINLogin = async () => {
+  const handleRegisterAgent = async () => {
     setLoading(true);
     setError('');
-    const formattedPhone = formatPhone(phone);
     
-    const { data, error: apiError } = await api.loginWithPIN(formattedPhone, pin);
+    const { data, error: apiError } = await api.registerAgent({
+      business_name: businessName,
+      business_type: businessType,
+      address: address || undefined,
+      initial_float: 0,
+    });
     setLoading(false);
     
     if (apiError) {
@@ -82,23 +93,34 @@ export default function Login() {
     }
     
     if (data) {
-      await login(data.access_token, data.refresh_token);
-      navigate('/');
+      setAgentCode(data.agent_code);
+      setStep('success');
     }
   };
 
+  const businessTypes = [
+    'Spaza Shop',
+    'Internet Cafe',
+    'General Store',
+    'Mobile Shop',
+    'Other'
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-900 flex items-center justify-center p-4">
       <Card className="w-full max-w-md bg-white/95 backdrop-blur">
         <CardHeader className="text-center">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
-            <Smartphone className="w-8 h-8 text-white" />
+          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
+            <Building2 className="w-8 h-8 text-white" />
           </div>
-          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">Welcome to Lokal</CardTitle>
+          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            Become an Agent
+          </CardTitle>
           <CardDescription>
             {step === 'phone' && 'Enter your phone number to get started'}
             {step === 'otp' && 'Enter the OTP sent to your phone'}
-            {step === 'pin' && 'Enter your PIN to login'}
+            {step === 'details' && 'Tell us about your business'}
+            {step === 'success' && 'Registration successful!'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -122,39 +144,20 @@ export default function Login() {
                 <p className="text-xs text-gray-500">South African mobile number</p>
               </div>
               <Button 
-                className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700" 
+                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700" 
                 onClick={handleRequestOTP}
                 disabled={loading || phone.length < 9}
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Continue with OTP
+                Continue
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-2 text-gray-500">Or</span>
-                </div>
-              </div>
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={() => setStep('pin')}
-              >
-                <Lock className="w-4 h-4 mr-2" />
-                Login with PIN
-              </Button>
-              <div className="text-center pt-4 border-t">
-                <p className="text-sm text-gray-500 mb-2">Want to become an agent?</p>
-                <Link to="/register/agent">
-                  <Button variant="ghost" className="text-violet-600 hover:text-violet-700">
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Register as Agent
-                  </Button>
-                </Link>
-              </div>
+              <Link to="/login">
+                <Button variant="ghost" className="w-full">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Login
+                </Button>
+              </Link>
             </>
           )}
           
@@ -171,13 +174,13 @@ export default function Login() {
                   maxLength={6}
                 />
                 {debugOtp && (
-                  <p className="text-xs text-violet-600 text-center">
+                  <p className="text-xs text-indigo-600 text-center">
                     Demo OTP: {debugOtp}
                   </p>
                 )}
               </div>
               <Button 
-                className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700" 
+                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700" 
                 onClick={handleVerifyOTP}
                 disabled={loading || otp.length !== 6}
               >
@@ -198,47 +201,74 @@ export default function Login() {
             </>
           )}
           
-          {step === 'pin' && (
+          {step === 'details' && (
             <>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Phone Number</label>
+                <label className="text-sm font-medium">Business Name</label>
                 <Input
-                  type="tel"
-                  placeholder="081 234 5678"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  type="text"
+                  placeholder="My Shop"
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">PIN</label>
+                <label className="text-sm font-medium">Business Type</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {businessTypes.map((type) => (
+                    <Button
+                      key={type}
+                      variant={businessType === type ? 'default' : 'outline'}
+                      size="sm"
+                      className={businessType === type ? 'bg-indigo-600' : ''}
+                      onClick={() => setBusinessType(type)}
+                    >
+                      {type}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Business Address (Optional)</label>
                 <Input
-                  type="password"
-                  placeholder="Enter your PIN"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className="text-lg text-center tracking-widest"
-                  maxLength={6}
+                  type="text"
+                  placeholder="123 Main Street, City"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
                 />
               </div>
               <Button 
-                className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700" 
-                onClick={handlePINLogin}
-                disabled={loading || pin.length < 4 || phone.length < 9}
+                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700" 
+                onClick={handleRegisterAgent}
+                disabled={loading || !businessName || !businessType}
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Login
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full"
-                onClick={() => {
-                  setStep('phone');
-                  setPin('');
-                }}
-              >
-                Back to OTP login
+                Register as Agent
               </Button>
             </>
+          )}
+          
+          {step === 'success' && (
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
+                <CheckCircle className="w-8 h-8 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-lg font-semibold text-gray-900">Welcome, Agent!</p>
+                <p className="text-sm text-gray-500 mt-1">Your agent code is:</p>
+                <p className="text-2xl font-bold text-indigo-600 mt-2">{agentCode}</p>
+              </div>
+              <p className="text-sm text-gray-500">
+                You can now start selling WiFi and electricity to customers.
+              </p>
+              <Button 
+                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700" 
+                onClick={() => navigate('/agent')}
+              >
+                Go to Agent Dashboard
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>

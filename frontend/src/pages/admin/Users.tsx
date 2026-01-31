@@ -110,9 +110,9 @@ export default function AdminUsersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-6">
+    <div className="min-h-screen bg-slate-900 pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-red-600 to-red-800 text-white p-6 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-rose-500 via-pink-600 to-purple-700 text-white p-6 rounded-b-3xl">
         <div className="flex items-center gap-3 mb-4">
           <Button 
             variant="ghost" 
@@ -128,18 +128,18 @@ export default function AdminUsersPage() {
         {/* Search */}
         <div className="flex gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-red-300" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-rose-300" />
             <Input
               type="text"
               placeholder="Search by phone or name"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-red-200"
+              className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-rose-200"
             />
           </div>
           <Button 
-            className="bg-white text-red-700 hover:bg-red-50"
+            className="bg-white text-rose-700 hover:bg-rose-50 shadow-lg"
             onClick={handleSearch}
           >
             Search
@@ -148,16 +148,16 @@ export default function AdminUsersPage() {
       </div>
 
       <div className="px-4 mt-4">
-        <p className="text-sm text-gray-500 mb-3">{total} users total</p>
+        <p className="text-sm text-slate-400 mb-3">{total} users total</p>
         
         {loading ? (
           <div className="flex justify-center py-8">
-            <Loader2 className="w-8 h-8 animate-spin text-red-600" />
+            <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
           </div>
         ) : users.length === 0 ? (
-          <Card>
-            <CardContent className="p-6 text-center text-gray-500">
-              <User className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+          <Card className="bg-slate-800 border-slate-700">
+            <CardContent className="p-6 text-center text-slate-400">
+              <User className="w-12 h-12 mx-auto mb-2 text-slate-600" />
               <p>No users found</p>
             </CardContent>
           </Card>
@@ -166,17 +166,17 @@ export default function AdminUsersPage() {
             {users.map((user) => (
               <Card 
                 key={user.id} 
-                className="cursor-pointer hover:shadow-md transition-shadow"
+                className="cursor-pointer hover:shadow-lg transition-shadow bg-slate-800 border-slate-700"
                 onClick={() => setSelectedUser(user)}
               >
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                      <User className="w-6 h-6 text-red-600" />
+                    <div className="w-12 h-12 bg-rose-500/20 rounded-xl flex items-center justify-center">
+                      <User className="w-6 h-6 text-rose-400" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold truncate">
+                        <h3 className="font-semibold truncate text-white">
                           {user.first_name || user.last_name 
                             ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
                             : 'Unknown'}
@@ -185,12 +185,12 @@ export default function AdminUsersPage() {
                           {user.status}
                         </Badge>
                       </div>
-                      <p className="text-sm text-gray-500">{user.phone_number}</p>
+                      <p className="text-sm text-slate-400">{user.phone_number}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant={getKycColor(user.kyc_status) as "default" | "secondary" | "destructive" | "outline"} className="text-xs">
                           KYC: {user.kyc_status}
                         </Badge>
-                        <span className="text-xs text-gray-400">
+                        <span className="text-xs text-slate-500">
                           Joined {formatDate(user.created_at)}
                         </span>
                       </div>
@@ -207,15 +207,17 @@ export default function AdminUsersPage() {
                 size="sm"
                 disabled={page === 1}
                 onClick={() => setPage(p => p - 1)}
+                className="border-slate-600 text-slate-300 hover:bg-slate-700"
               >
                 Previous
               </Button>
-              <span className="px-4 py-2 text-sm">Page {page}</span>
+              <span className="px-4 py-2 text-sm text-slate-400">Page {page}</span>
               <Button
                 variant="outline"
                 size="sm"
                 disabled={users.length < 20}
                 onClick={() => setPage(p => p + 1)}
+                className="border-slate-600 text-slate-300 hover:bg-slate-700"
               >
                 Next
               </Button>
@@ -226,49 +228,49 @@ export default function AdminUsersPage() {
 
       {/* User Detail Dialog */}
       <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
-        <DialogContent className="max-w-sm mx-4">
+        <DialogContent className="max-w-sm mx-4 bg-slate-800 border-slate-700">
           <DialogHeader>
-            <DialogTitle>User Details</DialogTitle>
+            <DialogTitle className="text-white">User Details</DialogTitle>
           </DialogHeader>
           {selectedUser && (
             <div className="py-4 space-y-4">
               <div className="text-center">
-                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <User className="w-8 h-8 text-red-600" />
+                <div className="w-16 h-16 bg-rose-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <User className="w-8 h-8 text-rose-400" />
                 </div>
-                <h3 className="font-bold text-lg">
+                <h3 className="font-bold text-lg text-white">
                   {selectedUser.first_name || selectedUser.last_name 
                     ? `${selectedUser.first_name || ''} ${selectedUser.last_name || ''}`.trim()
                     : 'Unknown'}
                 </h3>
-                <p className="text-gray-500">{selectedUser.phone_number}</p>
+                <p className="text-slate-400">{selectedUser.phone_number}</p>
               </div>
               
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Email</span>
-                  <span>{selectedUser.email || 'Not set'}</span>
+                  <span className="text-slate-400">Email</span>
+                  <span className="text-white">{selectedUser.email || 'Not set'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Status</span>
+                  <span className="text-slate-400">Status</span>
                   <Badge variant={getStatusColor(selectedUser.status) as "default" | "secondary" | "destructive" | "outline"}>
                     {selectedUser.status}
                   </Badge>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">KYC Status</span>
+                  <span className="text-slate-400">KYC Status</span>
                   <Badge variant={getKycColor(selectedUser.kyc_status) as "default" | "secondary" | "destructive" | "outline"}>
                     {selectedUser.kyc_status}
                   </Badge>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Loyalty Points</span>
-                  <span>{selectedUser.loyalty_points}</span>
+                  <span className="text-slate-400">Loyalty Points</span>
+                  <span className="text-white">{selectedUser.loyalty_points}</span>
                 </div>
               </div>
 
-              <div className="border-t pt-4 space-y-2">
-                <p className="text-sm font-medium text-gray-500">Actions</p>
+              <div className="border-t border-slate-700 pt-4 space-y-2">
+                <p className="text-sm font-medium text-slate-400">Actions</p>
                 <div className="grid grid-cols-2 gap-2">
                   {selectedUser.status === 'ACTIVE' ? (
                     <Button
@@ -284,7 +286,7 @@ export default function AdminUsersPage() {
                     <Button
                       variant="default"
                       size="sm"
-                      className="bg-green-600 hover:bg-green-700"
+                      className="bg-emerald-600 hover:bg-emerald-700"
                       onClick={() => handleUpdateStatus('ACTIVE')}
                       disabled={updating}
                     >
@@ -298,6 +300,7 @@ export default function AdminUsersPage() {
                       size="sm"
                       onClick={() => handleUpdateKYC('VERIFIED')}
                       disabled={updating}
+                      className="border-slate-600 text-slate-300 hover:bg-slate-700"
                     >
                       <Shield className="w-4 h-4 mr-1" />
                       Verify KYC
@@ -308,7 +311,7 @@ export default function AdminUsersPage() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedUser(null)}>
+            <Button variant="outline" onClick={() => setSelectedUser(null)} className="border-slate-600 text-slate-300 hover:bg-slate-700">
               Close
             </Button>
           </DialogFooter>

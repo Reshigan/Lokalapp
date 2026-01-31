@@ -124,16 +124,16 @@ export default function SellWiFiPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-6">
+    <div className="min-h-screen bg-slate-900 pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-blue-600 to-blue-800 text-white p-6 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-cyan-500 via-blue-600 to-indigo-700 text-white p-6 rounded-b-3xl">
         <div className="flex items-center gap-3">
           <Button 
             variant="ghost" 
@@ -149,17 +149,17 @@ export default function SellWiFiPage() {
 
       <div className="px-4 mt-4 space-y-4">
         {/* Customer Phone */}
-        <Card>
+        <Card className="bg-slate-800 border-slate-700">
           <CardContent className="p-4">
-            <label className="text-sm font-medium text-gray-500">Customer Phone Number</label>
+            <label className="text-sm font-medium text-slate-400">Customer Phone Number</label>
             <div className="relative mt-2">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
               <Input
                 type="tel"
                 placeholder="081 234 5678"
                 value={customerPhone}
                 onChange={(e) => setCustomerPhone(e.target.value)}
-                className="pl-10"
+                className="pl-10 bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
               />
             </div>
           </CardContent>
@@ -167,14 +167,14 @@ export default function SellWiFiPage() {
 
         {/* Package Selection */}
         <div className="space-y-3">
-          <h2 className="font-semibold text-gray-700">Select Package</h2>
+          <h2 className="font-semibold text-slate-300">Select Package</h2>
           {packages.map((pkg) => (
             <Card 
               key={pkg.id} 
-              className={`cursor-pointer transition-all ${
+              className={`cursor-pointer transition-all bg-slate-800 border-slate-700 ${
                 selectedPackage?.id === pkg.id 
-                  ? 'ring-2 ring-blue-600 bg-blue-50' 
-                  : 'hover:shadow-md'
+                  ? 'ring-2 ring-cyan-500 bg-cyan-500/10' 
+                  : 'hover:shadow-lg'
               }`}
               onClick={() => {
                 setSelectedPackage(pkg);
@@ -184,16 +184,16 @@ export default function SellWiFiPage() {
               <CardContent className="p-4">
                 <div className="flex justify-between items-start">
                   <div className="flex gap-3">
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                      selectedPackage?.id === pkg.id ? 'bg-blue-600' : 'bg-blue-100'
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${
+                      selectedPackage?.id === pkg.id ? 'bg-gradient-to-br from-cyan-500 to-blue-600' : 'bg-slate-700'
                     }`}>
                       <Wifi className={`w-6 h-6 ${
-                        selectedPackage?.id === pkg.id ? 'text-white' : 'text-blue-600'
+                        selectedPackage?.id === pkg.id ? 'text-white' : 'text-cyan-400'
                       }`} />
                     </div>
                     <div>
-                      <h3 className="font-semibold">{pkg.name}</h3>
-                      <div className="flex gap-3 mt-1 text-xs text-gray-500">
+                      <h3 className="font-semibold text-white">{pkg.name}</h3>
+                      <div className="flex gap-3 mt-1 text-xs text-slate-500">
                         <span className="flex items-center gap-1">
                           <Database className="w-3 h-3" />
                           {formatData(pkg.data_limit_mb)}
@@ -205,7 +205,7 @@ export default function SellWiFiPage() {
                       </div>
                     </div>
                   </div>
-                  <p className="text-lg font-bold text-blue-600">
+                  <p className="text-lg font-bold text-cyan-400">
                     {formatCurrency(pkg.price)}
                   </p>
                 </div>
@@ -216,23 +216,23 @@ export default function SellWiFiPage() {
 
         {/* Cash Received */}
         {selectedPackage && (
-          <Card>
+          <Card className="bg-slate-800 border-slate-700">
             <CardContent className="p-4">
-              <label className="text-sm font-medium text-gray-500">Cash Received</label>
+              <label className="text-sm font-medium text-slate-400">Cash Received</label>
               <div className="relative mt-2">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg font-bold text-gray-400">R</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-500">R</span>
                 <Input
                   type="number"
                   placeholder="0.00"
                   value={cashReceived}
                   onChange={(e) => setCashReceived(e.target.value)}
-                  className="text-xl font-bold pl-8"
+                  className="text-xl font-bold pl-8 bg-slate-700 border-slate-600 text-white"
                 />
               </div>
               {change > 0 && (
-                <div className="mt-3 p-3 bg-green-50 rounded-lg">
-                  <p className="text-sm text-gray-500">Change to give</p>
-                  <p className="text-xl font-bold text-green-600">{formatCurrency(change)}</p>
+                <div className="mt-3 p-3 bg-emerald-500/20 rounded-xl border border-emerald-500/30">
+                  <p className="text-sm text-slate-400">Change to give</p>
+                  <p className="text-xl font-bold text-emerald-400">{formatCurrency(change)}</p>
                 </div>
               )}
             </CardContent>
@@ -241,7 +241,7 @@ export default function SellWiFiPage() {
 
         {/* Sell Button */}
         <Button
-          className="w-full h-14 text-lg bg-blue-600 hover:bg-blue-700"
+          className="w-full h-14 text-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700"
           onClick={handleSell}
           disabled={processing || !selectedPackage || !customerPhone || parseFloat(cashReceived) < (selectedPackage?.price || 0)}
         >
@@ -252,29 +252,29 @@ export default function SellWiFiPage() {
 
       {/* Success Dialog */}
       <Dialog open={!!result} onOpenChange={() => setResult(null)}>
-        <DialogContent className="max-w-sm mx-4">
+        <DialogContent className="max-w-sm mx-4 bg-slate-800 border-slate-700">
           <DialogHeader>
-            <DialogTitle className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Check className="w-8 h-8 text-green-600" />
+            <DialogTitle className="text-center text-white">
+              <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Check className="w-8 h-8 text-emerald-400" />
               </div>
               Sale Complete!
             </DialogTitle>
-            <DialogDescription className="text-center">
-              Commission earned: <span className="font-bold text-green-600">{formatCurrency(result?.commission || 0)}</span>
+            <DialogDescription className="text-center text-slate-400">
+              Commission earned: <span className="font-bold text-emerald-400">{formatCurrency(result?.commission || 0)}</span>
             </DialogDescription>
           </DialogHeader>
           {result && (
             <div className="py-4">
-              <p className="text-center text-gray-600 mb-2">
+              <p className="text-center text-slate-400 mb-2">
                 WiFi Voucher Code:
               </p>
-              <div className="bg-gray-100 rounded-lg p-4 font-mono text-center text-xl">
+              <div className="bg-slate-700 rounded-xl p-4 font-mono text-center text-xl text-white">
                 {result.voucher_code}
               </div>
               <Button
                 variant="outline"
-                className="w-full mt-4"
+                className="w-full mt-4 border-slate-600 text-slate-300 hover:bg-slate-700"
                 onClick={() => copyToClipboard(result.voucher_code)}
               >
                 {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
@@ -284,7 +284,7 @@ export default function SellWiFiPage() {
           )}
           <DialogFooter>
             <Button 
-              className="w-full bg-blue-600 hover:bg-blue-700"
+              className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700"
               onClick={() => {
                 setResult(null);
                 setSelectedPackage(null);

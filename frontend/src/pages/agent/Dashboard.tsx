@@ -84,31 +84,31 @@ export default function AgentDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
       </div>
     );
   }
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-slate-800 border-slate-700">
           <CardContent className="p-6 text-center">
-            <Users className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-            <h2 className="text-xl font-bold mb-2">Not an Agent Yet</h2>
-            <p className="text-gray-600 mb-6">
+            <Users className="w-16 h-16 mx-auto text-slate-600 mb-4" />
+            <h2 className="text-xl font-bold mb-2 text-white">Not an Agent Yet</h2>
+            <p className="text-slate-400 mb-6">
               Register as an agent to start earning commissions
             </p>
             <Button 
-              className="w-full bg-indigo-600 hover:bg-indigo-700"
+              className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
               onClick={() => navigate('/agent/register')}
             >
               Register as Agent
             </Button>
             <Button 
               variant="ghost" 
-              className="w-full mt-2"
+              className="w-full mt-2 text-slate-400 hover:text-white"
               onClick={() => navigate('/user')}
             >
               Back to User App
@@ -120,9 +120,9 @@ export default function AgentDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-slate-900 pb-20">
       {/* Header */}
-      <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 text-white p-6 pb-24 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-indigo-500 via-purple-600 to-violet-700 text-white p-6 pb-28 rounded-b-3xl">
         <div className="flex justify-between items-start mb-6">
           <div>
             <p className="text-indigo-200 text-sm">Agent Portal</p>
@@ -145,16 +145,16 @@ export default function AgentDashboard() {
         </div>
         
         {/* Float Balance Card */}
-        <Card className={`bg-white/10 backdrop-blur border-0 text-white ${floatInfo?.is_low ? 'ring-2 ring-yellow-400' : ''}`}>
-          <CardContent className="p-4">
+        <Card className={`bg-white/10 backdrop-blur border-0 text-white shadow-2xl ${floatInfo?.is_low ? 'ring-2 ring-amber-400' : ''}`}>
+          <CardContent className="p-5">
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-indigo-200 text-sm">Float Balance</p>
-                <p className="text-3xl font-bold">
+                <p className="text-4xl font-bold tracking-tight">
                   {formatCurrency(floatInfo?.float_balance || 0)}
                 </p>
                 {floatInfo?.is_low && (
-                  <div className="flex items-center gap-1 mt-1 text-yellow-300 text-sm">
+                  <div className="flex items-center gap-1 mt-1 text-amber-300 text-sm">
                     <AlertTriangle className="w-4 h-4" />
                     Low float - top up soon
                   </div>
@@ -162,7 +162,7 @@ export default function AgentDashboard() {
               </div>
               <Button 
                 size="sm" 
-                className="bg-white text-indigo-700 hover:bg-indigo-50"
+                className="bg-white text-indigo-700 hover:bg-indigo-50 shadow-lg"
                 onClick={() => navigate('/agent/float')}
               >
                 <Plus className="w-4 h-4 mr-1" />
@@ -174,44 +174,44 @@ export default function AgentDashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="px-4 -mt-12">
+      <div className="px-4 -mt-14">
         <div className="grid grid-cols-2 gap-3 mb-4">
-          <Card>
+          <Card className="bg-slate-800 border-slate-700">
             <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-gray-500 mb-1">
+              <div className="flex items-center gap-2 text-slate-400 mb-1">
                 <TrendingUp className="w-4 h-4" />
                 <span className="text-xs">Today's Sales</span>
               </div>
-              <p className="text-xl font-bold">{formatCurrency(profile.monthly_sales)}</p>
+              <p className="text-xl font-bold text-white">{formatCurrency(profile.monthly_sales)}</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-slate-800 border-slate-700">
             <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-gray-500 mb-1">
+              <div className="flex items-center gap-2 text-slate-400 mb-1">
                 <DollarSign className="w-4 h-4" />
                 <span className="text-xs">Commission</span>
               </div>
-              <p className="text-xl font-bold text-green-600">{formatCurrency(profile.commission_balance)}</p>
+              <p className="text-xl font-bold text-emerald-400">{formatCurrency(profile.commission_balance)}</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Quick Actions */}
-        <Card className="mb-4">
+        <Card className="mb-4 bg-slate-800 border-slate-700">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Quick Actions</CardTitle>
+            <CardTitle className="text-lg text-white">Quick Actions</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="grid grid-cols-2 gap-3">
               <Button 
-                className="h-20 flex-col gap-2 bg-blue-600 hover:bg-blue-700"
+                className="h-20 flex-col gap-2 bg-gradient-to-br from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700"
                 onClick={() => navigate('/agent/sell/wifi')}
               >
                 <Wifi className="w-6 h-6" />
                 Sell WiFi
               </Button>
               <Button 
-                className="h-20 flex-col gap-2 bg-yellow-600 hover:bg-yellow-700"
+                className="h-20 flex-col gap-2 bg-gradient-to-br from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
                 onClick={() => navigate('/agent/sell/electricity')}
               >
                 <Zap className="w-6 h-6" />
@@ -219,7 +219,7 @@ export default function AgentDashboard() {
               </Button>
               <Button 
                 variant="outline"
-                className="h-20 flex-col gap-2"
+                className="h-20 flex-col gap-2 border-slate-600 text-slate-300 hover:bg-slate-700"
                 onClick={() => navigate('/agent/customers')}
               >
                 <Search className="w-6 h-6" />
@@ -227,7 +227,7 @@ export default function AgentDashboard() {
               </Button>
               <Button 
                 variant="outline"
-                className="h-20 flex-col gap-2"
+                className="h-20 flex-col gap-2 border-slate-600 text-slate-300 hover:bg-slate-700"
                 onClick={() => navigate('/agent/customers/new')}
               >
                 <Plus className="w-6 h-6" />
@@ -238,23 +238,23 @@ export default function AgentDashboard() {
         </Card>
 
         {/* Performance Summary */}
-        <Card>
+        <Card className="bg-slate-800 border-slate-700">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Performance</CardTitle>
+            <CardTitle className="text-lg text-white">Performance</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-gray-500">Total Sales</span>
-                <span className="font-semibold">{formatCurrency(profile.total_sales)}</span>
+                <span className="text-slate-400">Total Sales</span>
+                <span className="font-semibold text-white">{formatCurrency(profile.total_sales)}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-500">This Month</span>
-                <span className="font-semibold">{formatCurrency(profile.monthly_sales)}</span>
+                <span className="text-slate-400">This Month</span>
+                <span className="font-semibold text-white">{formatCurrency(profile.monthly_sales)}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-500">Commission Rate</span>
-                <span className="font-semibold text-green-600">
+                <span className="text-slate-400">Commission Rate</span>
+                <span className="font-semibold text-emerald-400">
                   {profile.tier === 'BRONZE' ? '5%' : 
                    profile.tier === 'SILVER' ? '7%' : 
                    profile.tier === 'GOLD' ? '10%' : '12%'}
@@ -266,28 +266,28 @@ export default function AgentDashboard() {
       </div>
 
       {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t px-6 py-3">
+      <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 px-6 py-3">
         <div className="flex justify-around items-center max-w-md mx-auto">
-          <button className="flex flex-col items-center gap-1 text-indigo-600">
+          <button className="flex flex-col items-center gap-1 text-indigo-400">
             <Wallet className="w-6 h-6" />
             <span className="text-xs font-medium">Home</span>
           </button>
           <button 
-            className="flex flex-col items-center gap-1 text-gray-400"
+            className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300"
             onClick={() => navigate('/agent/customers')}
           >
             <Users className="w-6 h-6" />
             <span className="text-xs">Customers</span>
           </button>
           <button 
-            className="flex flex-col items-center gap-1 text-gray-400"
+            className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300"
             onClick={() => navigate('/agent/commissions')}
           >
             <DollarSign className="w-6 h-6" />
             <span className="text-xs">Earnings</span>
           </button>
           <button 
-            className="flex flex-col items-center gap-1 text-gray-400"
+            className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300"
             onClick={() => navigate('/agent/float')}
           >
             <TrendingUp className="w-6 h-6" />
