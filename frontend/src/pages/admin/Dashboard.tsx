@@ -15,7 +15,8 @@ import {
   Wifi,
   Zap,
   BarChart3,
-  Settings
+  Settings,
+  Cog
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -265,6 +266,25 @@ export default function AdminDashboard() {
                 <span className="text-xs">Reports</span>
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* System Settings */}
+        <Card className="mt-4 bg-white border-0 shadow-md">
+          <CardContent className="p-4">
+            <Button 
+              variant="outline"
+              className="w-full h-14 justify-start gap-3 border-gray-200 text-gray-600 hover:bg-gray-50"
+              onClick={() => navigate('/admin/settings')}
+            >
+              <div className="w-10 h-10 bg-[#1e3a5f]/10 rounded-xl flex items-center justify-center">
+                <Cog className="w-5 h-5 text-[#1e3a5f]" />
+              </div>
+              <div className="text-left">
+                <p className="font-medium text-gray-900">System Settings</p>
+                <p className="text-xs text-gray-500">Payment gateways, bank accounts, IoT devices</p>
+              </div>
+            </Button>
           </CardContent>
         </Card>
       </div>

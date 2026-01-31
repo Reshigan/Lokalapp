@@ -526,6 +526,146 @@ class ApiService {
       }>;
     }>(`/admin/reports/agents?days=${days}`);
   }
+
+  // Admin Settings - Payment Gateways
+  async getPaymentGateways() {
+    return this.request<Array<{
+      id: string;
+      name: string;
+      type: string;
+      is_active: boolean;
+      merchant_id?: string;
+      api_key?: string;
+      environment: string;
+    }>>('/admin/settings/payment-gateways');
+  }
+
+  async createPaymentGateway(data: {
+    name: string;
+    type: string;
+    is_active: boolean;
+    merchant_id?: string;
+    api_key?: string;
+    environment: string;
+  }) {
+    return this.request('/admin/settings/payment-gateways', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updatePaymentGateway(id: string, data: {
+    name?: string;
+    type?: string;
+    is_active?: boolean;
+    merchant_id?: string;
+    api_key?: string;
+    environment?: string;
+  }) {
+    return this.request(`/admin/settings/payment-gateways/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deletePaymentGateway(id: string) {
+    return this.request(`/admin/settings/payment-gateways/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Admin Settings - Bank Accounts
+  async getBankAccounts() {
+    return this.request<Array<{
+      id: string;
+      bank_name: string;
+      account_name: string;
+      account_number: string;
+      branch_code: string;
+      account_type: string;
+      is_primary: boolean;
+    }>>('/admin/settings/bank-accounts');
+  }
+
+  async createBankAccount(data: {
+    bank_name: string;
+    account_name: string;
+    account_number: string;
+    branch_code: string;
+    account_type: string;
+    is_primary: boolean;
+  }) {
+    return this.request('/admin/settings/bank-accounts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateBankAccount(id: string, data: {
+    bank_name?: string;
+    account_name?: string;
+    account_number?: string;
+    branch_code?: string;
+    account_type?: string;
+    is_primary?: boolean;
+  }) {
+    return this.request(`/admin/settings/bank-accounts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteBankAccount(id: string) {
+    return this.request(`/admin/settings/bank-accounts/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Admin Settings - IoT Devices
+  async getIoTDevices() {
+    return this.request<Array<{
+      id: string;
+      name: string;
+      device_type: string;
+      serial_number: string;
+      ip_address?: string;
+      status: string;
+      last_seen?: string;
+      location?: string;
+    }>>('/admin/settings/iot-devices');
+  }
+
+  async createIoTDevice(data: {
+    name: string;
+    device_type: string;
+    serial_number: string;
+    ip_address?: string;
+    location?: string;
+  }) {
+    return this.request('/admin/settings/iot-devices', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateIoTDevice(id: string, data: {
+    name?: string;
+    device_type?: string;
+    serial_number?: string;
+    ip_address?: string;
+    location?: string;
+  }) {
+    return this.request(`/admin/settings/iot-devices/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteIoTDevice(id: string) {
+    return this.request(`/admin/settings/iot-devices/${id}`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 export const api = new ApiService();

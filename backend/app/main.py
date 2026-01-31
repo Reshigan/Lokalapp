@@ -14,6 +14,7 @@ from app.routers import (
     agent_router,
     admin_router,
 )
+from app.routers.settings import router as settings_router
 
 
 @asynccontextmanager
@@ -55,6 +56,7 @@ app.include_router(wifi_router)
 app.include_router(electricity_router)
 app.include_router(agent_router)
 app.include_router(admin_router)
+app.include_router(settings_router)
 
 
 @app.get("/healthz")

@@ -8,6 +8,7 @@ import ElectricityPage from './pages/user/Electricity';
 import HistoryPage from './pages/user/History';
 import ProfilePage from './pages/user/Profile';
 import TopupPage from './pages/user/Topup';
+import UserOnboarding from './pages/user/Onboarding';
 import AgentDashboard from './pages/agent/Dashboard';
 import SellWiFiPage from './pages/agent/SellWiFi';
 import SellElectricityPage from './pages/agent/SellElectricity';
@@ -15,11 +16,13 @@ import CommissionsPage from './pages/agent/Commissions';
 import CustomersPage from './pages/agent/Customers';
 import RegisterCustomerPage from './pages/agent/RegisterCustomer';
 import FloatPage from './pages/agent/Float';
+import AgentOnboarding from './pages/agent/Onboarding';
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminUsersPage from './pages/admin/Users';
 import AdminAgentsPage from './pages/admin/Agents';
 import AdminProductsPage from './pages/admin/Products';
 import AdminReportsPage from './pages/admin/Reports';
+import AdminSettingsPage from './pages/admin/Settings';
 import { Loader2 } from 'lucide-react';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -58,6 +61,7 @@ function AppRoutes() {
       
       {/* User Routes */}
       <Route path="/user" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
+      <Route path="/user/onboarding" element={<ProtectedRoute><UserOnboarding /></ProtectedRoute>} />
       <Route path="/user/wifi" element={<ProtectedRoute><WiFiPage /></ProtectedRoute>} />
       <Route path="/user/electricity" element={<ProtectedRoute><ElectricityPage /></ProtectedRoute>} />
       <Route path="/user/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
@@ -66,6 +70,7 @@ function AppRoutes() {
       
       {/* Agent Routes */}
       <Route path="/agent" element={<ProtectedRoute><AgentDashboard /></ProtectedRoute>} />
+      <Route path="/agent/onboarding" element={<ProtectedRoute><AgentOnboarding /></ProtectedRoute>} />
       <Route path="/agent/sell/wifi" element={<ProtectedRoute><SellWiFiPage /></ProtectedRoute>} />
       <Route path="/agent/sell/electricity" element={<ProtectedRoute><SellElectricityPage /></ProtectedRoute>} />
       <Route path="/agent/commissions" element={<ProtectedRoute><CommissionsPage /></ProtectedRoute>} />
@@ -79,6 +84,7 @@ function AppRoutes() {
       <Route path="/admin/agents" element={<ProtectedRoute><AdminAgentsPage /></ProtectedRoute>} />
       <Route path="/admin/products" element={<ProtectedRoute><AdminProductsPage /></ProtectedRoute>} />
       <Route path="/admin/reports" element={<ProtectedRoute><AdminReportsPage /></ProtectedRoute>} />
+      <Route path="/admin/settings" element={<ProtectedRoute><AdminSettingsPage /></ProtectedRoute>} />
       
       {/* Default redirect */}
       <Route path="/" element={<Navigate to="/user" replace />} />
