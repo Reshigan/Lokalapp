@@ -14,4 +14,4 @@ OTP_MAX_ATTEMPTS = "3"
 [[d1_databases]]
 binding = "DB"
 database_name = "lokal-db"
-database_id = "YOUR_D1_DATABASE_ID"
+database_id = "3322e9a8-3836-4c66-8098-aa5e31a9ab5c"

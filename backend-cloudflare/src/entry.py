@@ -233,6 +233,66 @@ class Default(WorkerEntrypoint):
             if path == "/admin/agents" and method == "GET":
                 return await self.admin_get_agents(request)
             
+            # New routes for enhanced features
+            
+            # Transaction receipt
+            if path.startswith("/transactions/") and path.endswith("/receipt") and method == "GET":
+                txn_id = path.split("/")[2]
+                return await self.get_transaction_receipt(request, txn_id)
+            
+            # Referral system
+            if path == "/referrals/apply" and method == "POST":
+                return await self.apply_referral_code(request)
+            
+            if path == "/referrals/stats" and method == "GET":
+                return await self.get_referral_stats(request)
+            
+            # Admin analytics
+            if path == "/admin/analytics" and method == "GET":
+                return await self.admin_analytics(request)
+            
+            if path == "/admin/analytics/revenue" and method == "GET":
+                return await self.admin_revenue_analytics(request)
+            
+            # Admin audit logs
+            if path == "/admin/audit-logs" and method == "GET":
+                return await self.admin_get_audit_logs(request)
+            
+            # Admin bulk operations
+            if path == "/admin/users/export" and method == "GET":
+                return await self.admin_export_users(request)
+            
+            if path == "/admin/users/import" and method == "POST":
+                return await self.admin_import_users(request)
+            
+            if path == "/admin/agents/export" and method == "GET":
+                return await self.admin_export_agents(request)
+            
+            # Agent sales reports
+            if path == "/agent/sales/report" and method == "GET":
+                return await self.agent_sales_report(request)
+            
+            if path == "/agent/sales/export" and method == "GET":
+                return await self.agent_export_sales(request)
+            
+            # Agent customer management
+            if path == "/agent/customers" and method == "GET":
+                return await self.agent_get_customers(request)
+            
+            if path == "/agent/customers" and method == "POST":
+                return await self.agent_add_customer(request)
+            
+            if path.startswith("/agent/customers/") and method == "GET":
+                customer_id = path.split("/")[3]
+                return await self.agent_get_customer_detail(request, customer_id)
+            
+            # Agent float alerts
+            if path == "/agent/alerts" and method == "GET":
+                return await self.agent_get_alerts(request)
+            
+            if path == "/agent/alerts/settings" and method == "PUT":
+                return await self.agent_update_alert_settings(request)
+            
             return error_response("Not found", 404)
         except Exception as e:
             return error_response(str(e), 500)
@@ -1189,3 +1249,684 @@ class Default(WorkerEntrypoint):
             })
         
         return json_response({"agents": agents})
+    
+    # ============== NEW FEATURE HANDLERS ==============
+    
+    # Transaction Receipt
+    async def get_transaction_receipt(self, request, txn_id):
+        user = await get_current_user(request, self.env)
+        if not user:
+            return error_response("Not authenticated", 401)
+        
+        wallet = await self.env.DB.prepare(
+            "SELECT * FROM wallets WHERE user_id = ?"
+        ).bind(str(user.id)).first()
+        
+        if not wallet:
+            return error_response("Wallet not found", 404)
+        
+        txn = await self.env.DB.prepare(
+            "SELECT * FROM transactions WHERE id = ? AND wallet_id = ?"
+        ).bind(txn_id, str(wallet.id)).first()
+        
+        if not txn:
+            return error_response("Transaction not found", 404)
+        
+        user_name = f"{str(user.first_name) if user.first_name else ''} {str(user.last_name) if user.last_name else ''}".strip() or "Customer"
+        
+        receipt = {
+            "receipt_number": str(txn.reference),
+            "date": str(txn.created_at),
+            "customer_name": user_name,
+            "customer_phone": str(user.phone_number),
+            "transaction_type": str(txn.type),
+            "description": str(txn.description) if txn.description else "",
+            "amount": float(txn.amount),
+            "fee": float(txn.fee) if txn.fee else 0,
+            "total": float(txn.amount) + (float(txn.fee) if txn.fee else 0),
+            "balance_after": float(txn.balance_after),
+            "status": str(txn.status),
+            "payment_method": str(txn.payment_method) if txn.payment_method else "WALLET",
+            "platform": "Lokal Platform",
+            "support_email": "support@lokal.co.za",
+            "support_phone": "+27 800 LOKAL"
+        }
+        
+        return json_response({"receipt": receipt})
+    
+    # Referral System
+    async def apply_referral_code(self, request):
+        user = await get_current_user(request, self.env)
+        if not user:
+            return error_response("Not authenticated", 401)
+        
+        body = await request.json()
+        referral_code = body.get("referral_code")
+        
+        if str(user.referred_by) if user.referred_by else None:
+            return error_response("You have already used a referral code", 400)
+        
+        referrer = await self.env.DB.prepare(
+            "SELECT * FROM users WHERE referral_code = ?"
+        ).bind(referral_code).first()
+        
+        if not referrer:
+            return error_response("Invalid referral code", 400)
+        
+        if str(referrer.id) == str(user.id):
+            return error_response("You cannot use your own referral code", 400)
+        
+        user_id = str(user.id)
+        referrer_id = str(referrer.id)
+        
+        await self.env.DB.prepare(
+            "UPDATE users SET referred_by = ?, updated_at = ? WHERE id = ?"
+        ).bind(referrer_id, datetime.utcnow().isoformat(), user_id).run()
+        
+        referral_id = generate_uuid()
+        reward_amount = 10.0
+        
+        await self.env.DB.prepare(
+            """INSERT INTO referrals (id, referrer_id, referred_id, referral_code, status, reward_amount)
+            VALUES (?, ?, ?, ?, ?, ?)"""
+        ).bind(referral_id, referrer_id, user_id, referral_code, "COMPLETED", reward_amount).run()
+        
+        referrer_points = int(referrer.loyalty_points) if referrer.loyalty_points else 0
+        await self.env.DB.prepare(
+            "UPDATE users SET loyalty_points = ?, updated_at = ? WHERE id = ?"
+        ).bind(referrer_points + 100, datetime.utcnow().isoformat(), referrer_id).run()
+        
+        user_points = int(user.loyalty_points) if user.loyalty_points else 0
+        await self.env.DB.prepare(
+            "UPDATE users SET loyalty_points = ?, updated_at = ? WHERE id = ?"
+        ).bind(user_points + 50, datetime.utcnow().isoformat(), user_id).run()
+        
+        await self.log_audit(user_id, "REFERRAL_APPLIED", "referral", referral_id, None, referral_code, request)
+        
+        return json_response({
+            "message": "Referral code applied successfully",
+            "points_earned": 50,
+            "referrer_points_earned": 100
+        })
+    
+    async def get_referral_stats(self, request):
+        user = await get_current_user(request, self.env)
+        if not user:
+            return error_response("Not authenticated", 401)
+        
+        user_id = str(user.id)
+        
+        result = await self.env.DB.prepare(
+            "SELECT COUNT(*) as count FROM referrals WHERE referrer_id = ?"
+        ).bind(user_id).first()
+        
+        total_referrals = int(result.count) if result else 0
+        
+        result2 = await self.env.DB.prepare(
+            "SELECT SUM(reward_amount) as total FROM referrals WHERE referrer_id = ? AND reward_paid = 1"
+        ).bind(user_id).first()
+        
+        total_rewards = float(result2.total) if result2 and result2.total else 0
+        
+        return json_response({
+            "referral_code": str(user.referral_code) if user.referral_code else None,
+            "total_referrals": total_referrals,
+            "total_rewards_earned": total_rewards,
+            "loyalty_points": int(user.loyalty_points) if user.loyalty_points else 0,
+            "reward_per_referral": 10.0,
+            "points_per_referral": 100
+        })
+    
+    # Admin Analytics
+    async def admin_analytics(self, request):
+        user = await get_current_user(request, self.env)
+        if not user:
+            return error_response("Not authenticated", 401)
+        
+        phone = str(user.phone_number) if user.phone_number else ""
+        if phone != "+27000000000":
+            return error_response("Admin access required", 403)
+        
+        users_count = await self.env.DB.prepare("SELECT COUNT(*) as count FROM users").first()
+        agents_count = await self.env.DB.prepare("SELECT COUNT(*) as count FROM agents").first()
+        txn_count = await self.env.DB.prepare("SELECT COUNT(*) as count FROM transactions").first()
+        
+        revenue_result = await self.env.DB.prepare(
+            "SELECT SUM(amount) as total FROM transactions WHERE type = 'PURCHASE' AND status = 'COMPLETED'"
+        ).first()
+        
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        today_users = await self.env.DB.prepare(
+            "SELECT COUNT(*) as count FROM users WHERE created_at LIKE ?"
+        ).bind(f"{today}%").first()
+        
+        today_txns = await self.env.DB.prepare(
+            "SELECT COUNT(*) as count FROM transactions WHERE created_at LIKE ?"
+        ).bind(f"{today}%").first()
+        
+        today_revenue = await self.env.DB.prepare(
+            "SELECT SUM(amount) as total FROM transactions WHERE type = 'PURCHASE' AND status = 'COMPLETED' AND created_at LIKE ?"
+        ).bind(f"{today}%").first()
+        
+        active_agents = await self.env.DB.prepare(
+            "SELECT COUNT(*) as count FROM agents WHERE status = 'ACTIVE'"
+        ).first()
+        
+        return json_response({
+            "total_users": int(users_count.count) if users_count else 0,
+            "total_agents": int(agents_count.count) if agents_count else 0,
+            "active_agents": int(active_agents.count) if active_agents else 0,
+            "total_transactions": int(txn_count.count) if txn_count else 0,
+            "total_revenue": float(revenue_result.total) if revenue_result and revenue_result.total else 0,
+            "today_new_users": int(today_users.count) if today_users else 0,
+            "today_transactions": int(today_txns.count) if today_txns else 0,
+            "today_revenue": float(today_revenue.total) if today_revenue and today_revenue.total else 0
+        })
+    
+    async def admin_revenue_analytics(self, request):
+        user = await get_current_user(request, self.env)
+        if not user:
+            return error_response("Not authenticated", 401)
+        
+        phone = str(user.phone_number) if user.phone_number else ""
+        if phone != "+27000000000":
+            return error_response("Admin access required", 403)
+        
+        daily_revenue = []
+        for i in range(7):
+            date = (datetime.utcnow() - timedelta(days=i)).strftime("%Y-%m-%d")
+            result = await self.env.DB.prepare(
+                "SELECT SUM(amount) as total, COUNT(*) as count FROM transactions WHERE type = 'PURCHASE' AND status = 'COMPLETED' AND created_at LIKE ?"
+            ).bind(f"{date}%").first()
+            daily_revenue.append({
+                "date": date,
+                "revenue": float(result.total) if result and result.total else 0,
+                "transactions": int(result.count) if result else 0
+            })
+        
+        wifi_revenue = await self.env.DB.prepare(
+            "SELECT SUM(amount) as total FROM transactions WHERE description LIKE '%WiFi%' AND status = 'COMPLETED'"
+        ).first()
+        
+        elec_revenue = await self.env.DB.prepare(
+            "SELECT SUM(amount) as total FROM transactions WHERE description LIKE '%Electricity%' AND status = 'COMPLETED'"
+        ).first()
+        
+        return json_response({
+            "daily_revenue": daily_revenue,
+            "revenue_by_product": {
+                "wifi": float(wifi_revenue.total) if wifi_revenue and wifi_revenue.total else 0,
+                "electricity": float(elec_revenue.total) if elec_revenue and elec_revenue.total else 0
+            }
+        })
+    
+    # Admin Audit Logs
+    async def admin_get_audit_logs(self, request):
+        user = await get_current_user(request, self.env)
+        if not user:
+            return error_response("Not authenticated", 401)
+        
+        phone = str(user.phone_number) if user.phone_number else ""
+        if phone != "+27000000000":
+            return error_response("Admin access required", 403)
+        
+        result = await self.env.DB.prepare(
+            """SELECT a.*, u.phone_number, u.first_name, u.last_name 
+            FROM audit_logs a 
+            LEFT JOIN users u ON a.user_id = u.id 
+            ORDER BY a.created_at DESC LIMIT 100"""
+        ).all()
+        
+        logs = []
+        results = result.results
+        for i in range(results.length):
+            log = results[i]
+            logs.append({
+                "id": str(log.id),
+                "user_id": str(log.user_id) if log.user_id else None,
+                "user_phone": str(log.phone_number) if log.phone_number else None,
+                "user_name": f"{str(log.first_name) if log.first_name else ''} {str(log.last_name) if log.last_name else ''}".strip() or None,
+                "action": str(log.action),
+                "entity_type": str(log.entity_type),
+                "entity_id": str(log.entity_id) if log.entity_id else None,
+                "old_value": str(log.old_value) if log.old_value else None,
+                "new_value": str(log.new_value) if log.new_value else None,
+                "created_at": str(log.created_at)
+            })
+        
+        return json_response({"audit_logs": logs})
+    
+    async def log_audit(self, user_id, action, entity_type, entity_id, old_value, new_value, request):
+        audit_id = generate_uuid()
+        ip = request.headers.get("CF-Connecting-IP") or request.headers.get("X-Forwarded-For") or "unknown"
+        ua = request.headers.get("User-Agent") or "unknown"
+        
+        await self.env.DB.prepare(
+            """INSERT INTO audit_logs (id, user_id, action, entity_type, entity_id, old_value, new_value, ip_address, user_agent)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+        ).bind(audit_id, user_id, action, entity_type, entity_id, old_value, new_value, ip, ua).run()
+    
+    # Admin Bulk Operations
+    async def admin_export_users(self, request):
+        user = await get_current_user(request, self.env)
+        if not user:
+            return error_response("Not authenticated", 401)
+        
+        phone = str(user.phone_number) if user.phone_number else ""
+        if phone != "+27000000000":
+            return error_response("Admin access required", 403)
+        
+        result = await self.env.DB.prepare(
+            "SELECT id, phone_number, first_name, last_name, email, kyc_status, status, loyalty_points, created_at FROM users ORDER BY created_at DESC"
+        ).all()
+        
+        csv_lines = ["id,phone_number,first_name,last_name,email,kyc_status,status,loyalty_points,created_at"]
+        results = result.results
+        for i in range(results.length):
+            u = results[i]
+            line = f"{str(u.id)},{str(u.phone_number)},{str(u.first_name) if u.first_name else ''},{str(u.last_name) if u.last_name else ''},{str(u.email) if u.email else ''},{str(u.kyc_status) if u.kyc_status else 'PENDING'},{str(u.status) if u.status else 'ACTIVE'},{int(u.loyalty_points) if u.loyalty_points else 0},{str(u.created_at)}"
+            csv_lines.append(line)
+        
+        csv_content = "\n".join(csv_lines)
+        
+        return Response(
+            csv_content,
+            status=200,
+            headers={
+                "Content-Type": "text/csv",
+                "Content-Disposition": "attachment; filename=users_export.csv",
+                "Access-Control-Allow-Origin": "*"
+            }
+        )
+    
+    async def admin_import_users(self, request):
+        user = await get_current_user(request, self.env)
+        if not user:
+            return error_response("Not authenticated", 401)
+        
+        phone = str(user.phone_number) if user.phone_number else ""
+        if phone != "+27000000000":
+            return error_response("Admin access required", 403)
+        
+        body = await request.json()
+        users_data = body.get("users", [])
+        
+        imported = 0
+        errors = []
+        
+        for u_data in users_data:
+            try:
+                phone_num = u_data.get("phone_number")
+                if not phone_num:
+                    errors.append({"error": "Missing phone number"})
+                    continue
+                
+                existing = await self.env.DB.prepare(
+                    "SELECT id FROM users WHERE phone_number = ?"
+                ).bind(phone_num).first()
+                
+                if existing:
+                    errors.append({"phone": phone_num, "error": "User already exists"})
+                    continue
+                
+                user_id = generate_uuid()
+                referral_code = generate_referral_code()
+                
+                await self.env.DB.prepare(
+                    """INSERT INTO users (id, phone_number, first_name, last_name, email, referral_code)
+                    VALUES (?, ?, ?, ?, ?, ?)"""
+                ).bind(
+                    user_id, phone_num,
+                    u_data.get("first_name"), u_data.get("last_name"),
+                    u_data.get("email"), referral_code
+                ).run()
+                
+                wallet_id = generate_uuid()
+                await self.env.DB.prepare(
+                    "INSERT INTO wallets (id, user_id) VALUES (?, ?)"
+                ).bind(wallet_id, user_id).run()
+                
+                imported += 1
+            except Exception as e:
+                errors.append({"error": str(e)})
+        
+        await self.log_audit(str(user.id), "BULK_IMPORT_USERS", "users", None, None, f"Imported {imported} users", request)
+        
+        return json_response({
+            "imported": imported,
+            "errors": errors
+        })
+    
+    async def admin_export_agents(self, request):
+        user = await get_current_user(request, self.env)
+        if not user:
+            return error_response("Not authenticated", 401)
+        
+        phone = str(user.phone_number) if user.phone_number else ""
+        if phone != "+27000000000":
+            return error_response("Admin access required", 403)
+        
+        result = await self.env.DB.prepare(
+            """SELECT a.id, a.agent_code, a.business_name, a.business_type, a.tier, a.float_balance, 
+            a.commission_balance, a.total_sales, a.status, a.created_at, u.phone_number
+            FROM agents a JOIN users u ON a.user_id = u.id ORDER BY a.created_at DESC"""
+        ).all()
+        
+        csv_lines = ["id,agent_code,business_name,business_type,phone_number,tier,float_balance,commission_balance,total_sales,status,created_at"]
+        results = result.results
+        for i in range(results.length):
+            a = results[i]
+            line = f"{str(a.id)},{str(a.agent_code)},{str(a.business_name)},{str(a.business_type) if a.business_type else 'OTHER'},{str(a.phone_number)},{str(a.tier) if a.tier else 'BRONZE'},{float(a.float_balance) if a.float_balance else 0},{float(a.commission_balance) if a.commission_balance else 0},{float(a.total_sales) if a.total_sales else 0},{str(a.status) if a.status else 'PENDING'},{str(a.created_at)}"
+            csv_lines.append(line)
+        
+        csv_content = "\n".join(csv_lines)
+        
+        return Response(
+            csv_content,
+            status=200,
+            headers={
+                "Content-Type": "text/csv",
+                "Content-Disposition": "attachment; filename=agents_export.csv",
+                "Access-Control-Allow-Origin": "*"
+            }
+        )
+    
+    # Agent Sales Reports
+    async def agent_sales_report(self, request):
+        user = await get_current_user(request, self.env)
+        if not user:
+            return error_response("Not authenticated", 401)
+        
+        agent = await self.env.DB.prepare(
+            "SELECT * FROM agents WHERE user_id = ?"
+        ).bind(str(user.id)).first()
+        
+        if not agent:
+            return error_response("Not an agent", 403)
+        
+        agent_id = str(agent.id)
+        
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        week_ago = (datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%d")
+        month_start = datetime.utcnow().strftime("%Y-%m-01")
+        
+        today_sales = await self.env.DB.prepare(
+            "SELECT SUM(amount) as total, COUNT(*) as count FROM agent_sales WHERE agent_id = ? AND created_at LIKE ?"
+        ).bind(agent_id, f"{today}%").first()
+        
+        week_sales = await self.env.DB.prepare(
+            "SELECT SUM(amount) as total, COUNT(*) as count FROM agent_sales WHERE agent_id = ? AND created_at >= ?"
+        ).bind(agent_id, week_ago).first()
+        
+        month_sales = await self.env.DB.prepare(
+            "SELECT SUM(amount) as total, COUNT(*) as count FROM agent_sales WHERE agent_id = ? AND created_at >= ?"
+        ).bind(agent_id, month_start).first()
+        
+        today_commission = await self.env.DB.prepare(
+            "SELECT SUM(commission) as total FROM agent_sales WHERE agent_id = ? AND created_at LIKE ?"
+        ).bind(agent_id, f"{today}%").first()
+        
+        month_commission = await self.env.DB.prepare(
+            "SELECT SUM(commission) as total FROM agent_sales WHERE agent_id = ? AND created_at >= ?"
+        ).bind(agent_id, month_start).first()
+        
+        daily_sales = []
+        for i in range(7):
+            date = (datetime.utcnow() - timedelta(days=i)).strftime("%Y-%m-%d")
+            result = await self.env.DB.prepare(
+                "SELECT SUM(amount) as total, COUNT(*) as count FROM agent_sales WHERE agent_id = ? AND created_at LIKE ?"
+            ).bind(agent_id, f"{date}%").first()
+            daily_sales.append({
+                "date": date,
+                "sales": float(result.total) if result and result.total else 0,
+                "count": int(result.count) if result else 0
+            })
+        
+        return json_response({
+            "today": {
+                "sales": float(today_sales.total) if today_sales and today_sales.total else 0,
+                "count": int(today_sales.count) if today_sales else 0,
+                "commission": float(today_commission.total) if today_commission and today_commission.total else 0
+            },
+            "week": {
+                "sales": float(week_sales.total) if week_sales and week_sales.total else 0,
+                "count": int(week_sales.count) if week_sales else 0
+            },
+            "month": {
+                "sales": float(month_sales.total) if month_sales and month_sales.total else 0,
+                "count": int(month_sales.count) if month_sales else 0,
+                "commission": float(month_commission.total) if month_commission and month_commission.total else 0
+            },
+            "daily_breakdown": daily_sales,
+            "total_sales": float(agent.total_sales) if agent.total_sales else 0,
+            "commission_balance": float(agent.commission_balance) if agent.commission_balance else 0
+        })
+    
+    async def agent_export_sales(self, request):
+        user = await get_current_user(request, self.env)
+        if not user:
+            return error_response("Not authenticated", 401)
+        
+        agent = await self.env.DB.prepare(
+            "SELECT * FROM agents WHERE user_id = ?"
+        ).bind(str(user.id)).first()
+        
+        if not agent:
+            return error_response("Not an agent", 403)
+        
+        result = await self.env.DB.prepare(
+            "SELECT * FROM agent_sales WHERE agent_id = ? ORDER BY created_at DESC"
+        ).bind(str(agent.id)).all()
+        
+        csv_lines = ["id,customer_phone,product_type,product_name,amount,commission,status,created_at"]
+        results = result.results
+        for i in range(results.length):
+            s = results[i]
+            line = f"{str(s.id)},{str(s.customer_phone) if s.customer_phone else ''},{str(s.product_type)},{str(s.product_name)},{float(s.amount)},{float(s.commission)},{str(s.status)},{str(s.created_at)}"
+            csv_lines.append(line)
+        
+        csv_content = "\n".join(csv_lines)
+        
+        return Response(
+            csv_content,
+            status=200,
+            headers={
+                "Content-Type": "text/csv",
+                "Content-Disposition": "attachment; filename=sales_export.csv",
+                "Access-Control-Allow-Origin": "*"
+            }
+        )
+    
+    # Agent Customer Management
+    async def agent_get_customers(self, request):
+        user = await get_current_user(request, self.env)
+        if not user:
+            return error_response("Not authenticated", 401)
+        
+        agent = await self.env.DB.prepare(
+            "SELECT * FROM agents WHERE user_id = ?"
+        ).bind(str(user.id)).first()
+        
+        if not agent:
+            return error_response("Not an agent", 403)
+        
+        result = await self.env.DB.prepare(
+            "SELECT * FROM agent_customers WHERE agent_id = ? ORDER BY last_purchase_at DESC NULLS LAST, created_at DESC"
+        ).bind(str(agent.id)).all()
+        
+        customers = []
+        results = result.results
+        for i in range(results.length):
+            c = results[i]
+            customers.append({
+                "id": str(c.id),
+                "customer_id": str(c.customer_id),
+                "customer_phone": str(c.customer_phone),
+                "customer_name": str(c.customer_name) if c.customer_name else None,
+                "notes": str(c.notes) if c.notes else None,
+                "total_purchases": float(c.total_purchases) if c.total_purchases else 0,
+                "last_purchase_at": str(c.last_purchase_at) if c.last_purchase_at else None,
+                "created_at": str(c.created_at)
+            })
+        
+        return json_response({"customers": customers})
+    
+    async def agent_add_customer(self, request):
+        user = await get_current_user(request, self.env)
+        if not user:
+            return error_response("Not authenticated", 401)
+        
+        agent = await self.env.DB.prepare(
+            "SELECT * FROM agents WHERE user_id = ?"
+        ).bind(str(user.id)).first()
+        
+        if not agent:
+            return error_response("Not an agent", 403)
+        
+        body = await request.json()
+        customer_phone = body.get("customer_phone")
+        customer_name = body.get("customer_name")
+        notes = body.get("notes")
+        
+        customer = await self.env.DB.prepare(
+            "SELECT * FROM users WHERE phone_number = ?"
+        ).bind(customer_phone).first()
+        
+        customer_id = None
+        if customer:
+            customer_id = str(customer.id)
+        else:
+            customer_id = generate_uuid()
+            referral_code = generate_referral_code()
+            await self.env.DB.prepare(
+                "INSERT INTO users (id, phone_number, first_name, referral_code) VALUES (?, ?, ?, ?)"
+            ).bind(customer_id, customer_phone, customer_name, referral_code).run()
+            
+            wallet_id = generate_uuid()
+            await self.env.DB.prepare(
+                "INSERT INTO wallets (id, user_id) VALUES (?, ?)"
+            ).bind(wallet_id, customer_id).run()
+        
+        existing = await self.env.DB.prepare(
+            "SELECT * FROM agent_customers WHERE agent_id = ? AND customer_phone = ?"
+        ).bind(str(agent.id), customer_phone).first()
+        
+        if existing:
+            return error_response("Customer already added", 400)
+        
+        ac_id = generate_uuid()
+        await self.env.DB.prepare(
+            """INSERT INTO agent_customers (id, agent_id, customer_id, customer_phone, customer_name, notes)
+            VALUES (?, ?, ?, ?, ?, ?)"""
+        ).bind(ac_id, str(agent.id), customer_id, customer_phone, customer_name, notes).run()
+        
+        return json_response({"message": "Customer added successfully", "customer_id": ac_id})
+    
+    async def agent_get_customer_detail(self, request, customer_id):
+        user = await get_current_user(request, self.env)
+        if not user:
+            return error_response("Not authenticated", 401)
+        
+        agent = await self.env.DB.prepare(
+            "SELECT * FROM agents WHERE user_id = ?"
+        ).bind(str(user.id)).first()
+        
+        if not agent:
+            return error_response("Not an agent", 403)
+        
+        customer = await self.env.DB.prepare(
+            "SELECT * FROM agent_customers WHERE id = ? AND agent_id = ?"
+        ).bind(customer_id, str(agent.id)).first()
+        
+        if not customer:
+            return error_response("Customer not found", 404)
+        
+        sales_result = await self.env.DB.prepare(
+            "SELECT * FROM agent_sales WHERE agent_id = ? AND customer_phone = ? ORDER BY created_at DESC LIMIT 20"
+        ).bind(str(agent.id), str(customer.customer_phone)).all()
+        
+        sales = []
+        results = sales_result.results
+        for i in range(results.length):
+            s = results[i]
+            sales.append({
+                "id": str(s.id),
+                "product_type": str(s.product_type),
+                "product_name": str(s.product_name),
+                "amount": float(s.amount),
+                "created_at": str(s.created_at)
+            })
+        
+        return json_response({
+            "customer": {
+                "id": str(customer.id),
+                "customer_phone": str(customer.customer_phone),
+                "customer_name": str(customer.customer_name) if customer.customer_name else None,
+                "notes": str(customer.notes) if customer.notes else None,
+                "total_purchases": float(customer.total_purchases) if customer.total_purchases else 0,
+                "last_purchase_at": str(customer.last_purchase_at) if customer.last_purchase_at else None
+            },
+            "purchase_history": sales
+        })
+    
+    # Agent Float Alerts
+    async def agent_get_alerts(self, request):
+        user = await get_current_user(request, self.env)
+        if not user:
+            return error_response("Not authenticated", 401)
+        
+        agent = await self.env.DB.prepare(
+            "SELECT * FROM agents WHERE user_id = ?"
+        ).bind(str(user.id)).first()
+        
+        if not agent:
+            return error_response("Not an agent", 403)
+        
+        result = await self.env.DB.prepare(
+            "SELECT * FROM float_alerts WHERE agent_id = ? ORDER BY created_at DESC LIMIT 50"
+        ).bind(str(agent.id)).all()
+        
+        alerts = []
+        results = result.results
+        for i in range(results.length):
+            a = results[i]
+            alerts.append({
+                "id": str(a.id),
+                "alert_type": str(a.alert_type),
+                "threshold": float(a.threshold) if a.threshold else None,
+                "current_balance": float(a.current_balance) if a.current_balance else None,
+                "message": str(a.message) if a.message else None,
+                "is_read": bool(a.is_read),
+                "created_at": str(a.created_at)
+            })
+        
+        float_balance = float(agent.float_balance) if agent.float_balance else 0
+        threshold = float(agent.low_float_threshold) if agent.low_float_threshold else 100
+        
+        return json_response({
+            "alerts": alerts,
+            "current_float": float_balance,
+            "low_float_threshold": threshold,
+            "is_low": float_balance < threshold
+        })
+    
+    async def agent_update_alert_settings(self, request):
+        user = await get_current_user(request, self.env)
+        if not user:
+            return error_response("Not authenticated", 401)
+        
+        agent = await self.env.DB.prepare(
+            "SELECT * FROM agents WHERE user_id = ?"
+        ).bind(str(user.id)).first()
+        
+        if not agent:
+            return error_response("Not an agent", 403)
+        
+        body = await request.json()
+        threshold = float(body.get("low_float_threshold", 100))
+        
+        await self.env.DB.prepare(
+            "UPDATE agents SET low_float_threshold = ?, updated_at = ? WHERE id = ?"
+        ).bind(threshold, datetime.utcnow().isoformat(), str(agent.id)).run()
+        
+        return json_response({"message": "Alert settings updated", "low_float_threshold": threshold})

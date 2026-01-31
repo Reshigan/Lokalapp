@@ -219,3 +219,105 @@ VALUES
     ('pkg-elec-2', '100 kWh Units', '100 kWh prepaid electricity units', 140.00, 'UNITS', 100.00, NULL, 1, 2),
     ('pkg-elec-3', '7 Day Unlimited', 'Unlimited electricity for 7 days', 200.00, 'UNLIMITED', NULL, 7, 1, 3),
     ('pkg-elec-4', '30 Day Unlimited', 'Unlimited electricity for 30 days', 600.00, 'UNLIMITED', NULL, 30, 1, 4);
+
+-- Audit logs table for admin tracking
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id TEXT PRIMARY KEY,
+    user_id TEXT,
+    action TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id TEXT,
+    old_value TEXT,
+    new_value TEXT,
+    ip_address TEXT,
+    user_agent TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
+
+-- Referrals table for tracking referral rewards
+CREATE TABLE IF NOT EXISTS referrals (
+    id TEXT PRIMARY KEY,
+    referrer_id TEXT NOT NULL,
+    referred_id TEXT NOT NULL,
+    referral_code TEXT NOT NULL,
+    status TEXT DEFAULT 'PENDING',
+    reward_amount REAL DEFAULT 0,
+    reward_paid INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    completed_at TEXT,
+    FOREIGN KEY (referrer_id) REFERENCES users(id),
+    FOREIGN KEY (referred_id) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_id);
+CREATE INDEX IF NOT EXISTS idx_referrals_referred ON referrals(referred_id);
+
+-- Agent sales table for detailed sales tracking
+CREATE TABLE IF NOT EXISTS agent_sales (
+    id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    customer_phone TEXT,
+    customer_id TEXT,
+    product_type TEXT NOT NULL,
+    product_id TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    amount REAL NOT NULL,
+    commission REAL NOT NULL,
+    status TEXT DEFAULT 'COMPLETED',
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (agent_id) REFERENCES agents(id),
+    FOREIGN KEY (customer_id) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_sales_agent ON agent_sales(agent_id);
+CREATE INDEX IF NOT EXISTS idx_agent_sales_date ON agent_sales(created_at);
+
+-- Agent customers table for customer management
+CREATE TABLE IF NOT EXISTS agent_customers (
+    id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    customer_id TEXT NOT NULL,
+    customer_phone TEXT NOT NULL,
+    customer_name TEXT,
+    notes TEXT,
+    total_purchases REAL DEFAULT 0,
+    last_purchase_at TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (agent_id) REFERENCES agents(id),
+    FOREIGN KEY (customer_id) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_customers_agent ON agent_customers(agent_id);
+
+-- Float alerts table for agent notifications
+CREATE TABLE IF NOT EXISTS float_alerts (
+    id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    alert_type TEXT NOT NULL,
+    threshold REAL,
+    current_balance REAL,
+    message TEXT,
+    is_read INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (agent_id) REFERENCES agents(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_float_alerts_agent ON float_alerts(agent_id);
+
+-- Rate limiting table
+CREATE TABLE IF NOT EXISTS rate_limits (
+    id TEXT PRIMARY KEY,
+    identifier TEXT NOT NULL,
+    endpoint TEXT NOT NULL,
+    request_count INTEGER DEFAULT 1,
+    window_start TEXT DEFAULT (datetime('now')),
+    UNIQUE(identifier, endpoint)
+);
+
+CREATE INDEX IF NOT EXISTS idx_rate_limits_identifier ON rate_limits(identifier, endpoint);

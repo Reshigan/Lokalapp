@@ -666,6 +666,236 @@ class ApiService {
       method: 'DELETE',
     });
   }
+
+  // ============== NEW FEATURE ENDPOINTS ==============
+
+  // Transaction Receipt
+  async getTransactionReceipt(transactionId: string) {
+    return this.request<{
+      receipt: {
+        receipt_number: string;
+        date: string;
+        customer_name: string;
+        customer_phone: string;
+        transaction_type: string;
+        description: string;
+        amount: number;
+        fee: number;
+        total: number;
+        balance_after: number;
+        status: string;
+        payment_method: string;
+        platform: string;
+        support_email: string;
+        support_phone: string;
+      };
+    }>(`/transactions/${transactionId}/receipt`);
+  }
+
+  // Referral System
+  async applyReferralCode(referral_code: string) {
+    return this.request<{
+      message: string;
+      points_earned: number;
+      referrer_points_earned: number;
+    }>('/referrals/apply', {
+      method: 'POST',
+      body: JSON.stringify({ referral_code }),
+    });
+  }
+
+  async getReferralStats() {
+    return this.request<{
+      referral_code: string | null;
+      total_referrals: number;
+      total_rewards_earned: number;
+      loyalty_points: number;
+      reward_per_referral: number;
+      points_per_referral: number;
+    }>('/referrals/stats');
+  }
+
+  // Admin Analytics
+  async getAdminAnalytics() {
+    return this.request<{
+      total_users: number;
+      total_agents: number;
+      active_agents: number;
+      total_transactions: number;
+      total_revenue: number;
+      today_new_users: number;
+      today_transactions: number;
+      today_revenue: number;
+    }>('/admin/analytics');
+  }
+
+  async getAdminRevenueAnalytics() {
+    return this.request<{
+      daily_revenue: Array<{
+        date: string;
+        revenue: number;
+        transactions: number;
+      }>;
+      revenue_by_product: {
+        wifi: number;
+        electricity: number;
+      };
+    }>('/admin/analytics/revenue');
+  }
+
+  // Admin Audit Logs
+  async getAdminAuditLogs() {
+    return this.request<{
+      audit_logs: Array<{
+        id: string;
+        user_id: string | null;
+        user_phone: string | null;
+        user_name: string | null;
+        action: string;
+        entity_type: string;
+        entity_id: string | null;
+        old_value: string | null;
+        new_value: string | null;
+        created_at: string;
+      }>;
+    }>('/admin/audit-logs');
+  }
+
+  // Admin Bulk Operations
+  async exportUsers() {
+    const token = this.getToken();
+    const response = await fetch(`${API_BASE_URL}/admin/users/export`, {
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    });
+    return response.blob();
+  }
+
+  async importUsers(users: Array<{
+    phone_number: string;
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+  }>) {
+    return this.request<{
+      imported: number;
+      errors: Array<{ phone?: string; error: string }>;
+    }>('/admin/users/import', {
+      method: 'POST',
+      body: JSON.stringify({ users }),
+    });
+  }
+
+  async exportAgents() {
+    const token = this.getToken();
+    const response = await fetch(`${API_BASE_URL}/admin/agents/export`, {
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    });
+    return response.blob();
+  }
+
+  // Agent Sales Reports
+  async getAgentSalesReport() {
+    return this.request<{
+      today: { sales: number; count: number; commission: number };
+      week: { sales: number; count: number };
+      month: { sales: number; count: number; commission: number };
+      daily_breakdown: Array<{ date: string; sales: number; count: number }>;
+      total_sales: number;
+      commission_balance: number;
+    }>('/agent/sales/report');
+  }
+
+  async exportAgentSales() {
+    const token = this.getToken();
+    const response = await fetch(`${API_BASE_URL}/agent/sales/export`, {
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    });
+    return response.blob();
+  }
+
+  // Agent Customer Management
+  async getAgentCustomers() {
+    return this.request<{
+      customers: Array<{
+        id: string;
+        customer_id: string;
+        customer_phone: string;
+        customer_name: string | null;
+        notes: string | null;
+        total_purchases: number;
+        last_purchase_at: string | null;
+        created_at: string;
+      }>;
+    }>('/agent/customers');
+  }
+
+  async addAgentCustomer(data: {
+    customer_phone: string;
+    customer_name?: string;
+    notes?: string;
+  }) {
+    return this.request<{
+      message: string;
+      customer_id: string;
+    }>('/agent/customers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAgentCustomerDetail(customerId: string) {
+    return this.request<{
+      customer: {
+        id: string;
+        customer_phone: string;
+        customer_name: string | null;
+        notes: string | null;
+        total_purchases: number;
+        last_purchase_at: string | null;
+      };
+      purchase_history: Array<{
+        id: string;
+        product_type: string;
+        product_name: string;
+        amount: number;
+        created_at: string;
+      }>;
+    }>(`/agent/customers/${customerId}`);
+  }
+
+  // Agent Float Alerts
+  async getAgentAlerts() {
+    return this.request<{
+      alerts: Array<{
+        id: string;
+        alert_type: string;
+        threshold: number | null;
+        current_balance: number | null;
+        message: string | null;
+        is_read: boolean;
+        created_at: string;
+      }>;
+      current_float: number;
+      low_float_threshold: number;
+      is_low: boolean;
+    }>('/agent/alerts');
+  }
+
+  async updateAgentAlertSettings(low_float_threshold: number) {
+    return this.request<{
+      message: string;
+      low_float_threshold: number;
+    }>('/agent/alerts/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ low_float_threshold }),
+    });
+  }
 }
 
 export const api = new ApiService();
