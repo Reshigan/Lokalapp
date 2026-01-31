@@ -20,7 +20,18 @@ export default {
   				'cyan': '#06b6d4',
   				'purple': '#8b5cf6',
   				'pink': '#ec4899',
-  				'accent': '#22d3ee'
+  				'accent': '#22d3ee',
+  				'teal': '#00B894',
+  				'teal-dark': '#00997A',
+  				'yellow': '#FDCB6E',
+  				'orange': '#F39C12',
+  				'violet': '#6C5CE7',
+  				'magenta': '#E84393',
+  				'bg': '#F8F9FA',
+  				'card': '#FFFFFF',
+  				'text': '#2D3436',
+  				'text-gray': '#636E72',
+  				'border': '#E9ECEF'
   			}
   		},
   		animation: {
