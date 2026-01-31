@@ -216,14 +216,16 @@ class ApiService {
 
   // WiFi endpoints
   async getWiFiPackages() {
-    return this.request<Array<{
-      id: string;
-      name: string;
-      description: string | null;
-      price: number;
-      data_limit_mb: number;
-      validity_hours: number;
-    }>>('/wifi/packages');
+    return this.request<{
+      packages: Array<{
+        id: string;
+        name: string;
+        description: string | null;
+        price: number;
+        data_limit_mb: number;
+        validity_hours: number;
+      }>;
+    }>('/wifi/packages');
   }
 
   async purchaseWiFi(package_id: string) {
@@ -239,19 +241,21 @@ class ApiService {
   }
 
   async getWiFiVouchers() {
-    return this.request<Array<{
-      id: string;
-      package_name: string;
-      voucher_code: string;
-      status: string;
-      data_limit_mb: number;
-      data_used_mb: number;
-      data_remaining_mb: number;
-      validity_hours: number;
-      activated_at: string | null;
-      expires_at: string | null;
-      created_at: string;
-    }>>('/wifi/vouchers');
+    return this.request<{
+      vouchers: Array<{
+        id: string;
+        package_name: string;
+        voucher_code: string;
+        status: string;
+        data_limit_mb: number;
+        data_used_mb: number;
+        data_remaining_mb: number;
+        validity_hours: number;
+        activated_at: string | null;
+        expires_at: string | null;
+        created_at: string;
+      }>;
+    }>('/wifi/vouchers');
   }
 
   async activateVoucher(voucher_id: string) {
@@ -266,13 +270,17 @@ class ApiService {
 
   // Electricity endpoints
   async getElectricityPackages() {
-    return this.request<Array<{
-      id: string;
-      name: string;
-      description: string | null;
-      price: number;
-      kwh_amount: number;
-    }>>('/electricity/packages');
+    return this.request<{
+      packages: Array<{
+        id: string;
+        name: string;
+        description: string | null;
+        price: number;
+        package_type: string;
+        kwh_amount: number | null;
+        validity_days: number | null;
+      }>;
+    }>('/electricity/packages');
   }
 
   async purchaseElectricity(package_id: string, meter_id: string) {
@@ -289,14 +297,16 @@ class ApiService {
   }
 
   async getMeters() {
-    return this.request<Array<{
-      id: string;
-      meter_number: string;
-      address: string | null;
-      kwh_balance: number;
-      status: string;
-      last_reading: number;
-    }>>('/electricity/meters');
+    return this.request<{
+      meters: Array<{
+        id: string;
+        meter_number: string;
+        address: string | null;
+        kwh_balance: number;
+        status: string;
+        unlimited_expires_at: string | null;
+      }>;
+    }>('/electricity/meters');
   }
 
   async registerMeter(meter_number: string, address?: string) {
