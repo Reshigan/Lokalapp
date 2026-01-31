@@ -88,16 +88,16 @@ export default function HistoryPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#1e3a5f]" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 pb-6">
+    <div className="min-h-screen bg-gray-50 pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-pink-500 via-rose-500 to-red-600 text-white p-6 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-[#1e3a5f] to-[#2d5a87] text-white p-6 rounded-b-3xl">
         <div className="flex items-center gap-3">
           <Button 
             variant="ghost" 
@@ -113,9 +113,9 @@ export default function HistoryPage() {
 
       <div className="px-4 mt-4">
         {transactions.length === 0 ? (
-          <Card className="bg-slate-800 border-slate-700">
-            <CardContent className="p-6 text-center text-slate-400">
-              <HistoryIcon className="w-12 h-12 mx-auto mb-2 text-slate-600" />
+          <Card className="bg-white border-0 shadow-md">
+            <CardContent className="p-6 text-center text-gray-400">
+              <HistoryIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
               <p>No transactions yet</p>
               <p className="text-sm mt-2">Your transaction history will appear here</p>
             </CardContent>
@@ -123,36 +123,36 @@ export default function HistoryPage() {
         ) : (
           <div className="space-y-3">
             {transactions.map((tx) => (
-              <Card key={tx.id} className="bg-slate-800 border-slate-700">
+              <Card key={tx.id} className="bg-white border-0 shadow-md">
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                      tx.amount > 0 ? 'bg-emerald-500/20' : 'bg-rose-500/20'
+                      tx.amount > 0 ? 'bg-emerald-100' : 'bg-rose-100'
                     }`}>
                       {tx.amount > 0 ? (
-                        <ArrowDownLeft className="w-5 h-5 text-emerald-400" />
+                        <ArrowDownLeft className="w-5 h-5 text-emerald-600" />
                       ) : (
-                        <ArrowUpRight className="w-5 h-5 text-rose-400" />
+                        <ArrowUpRight className="w-5 h-5 text-rose-600" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start">
                         <div>
-                          <p className="font-medium text-white">
+                          <p className="font-medium text-gray-900">
                             {tx.description || tx.type}
                           </p>
-                          <p className="text-xs text-slate-500 mt-1">
+                          <p className="text-xs text-gray-500 mt-1">
                             {formatDate(tx.created_at)}
                           </p>
                         </div>
                         <div className="text-right">
                           <p className={`font-semibold ${
-                            tx.amount > 0 ? 'text-emerald-400' : 'text-white'
+                            tx.amount > 0 ? 'text-emerald-600' : 'text-gray-900'
                           }`}>
                             {tx.amount > 0 ? '+' : ''}{formatCurrency(tx.amount)}
                           </p>
                           {tx.fee > 0 && (
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-gray-500">
                               Fee: {formatCurrency(tx.fee)}
                             </p>
                           )}
@@ -162,11 +162,11 @@ export default function HistoryPage() {
                         <Badge variant={getStatusColor(tx.status) as "default" | "secondary" | "destructive" | "outline"}>
                           {tx.status}
                         </Badge>
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-gray-500">
                           Ref: {tx.reference.slice(0, 8)}...
                         </span>
                       </div>
-                      <div className="mt-2 text-xs text-slate-500">
+                      <div className="mt-2 text-xs text-gray-500">
                         Balance: {formatCurrency(tx.balance_before)} → {formatCurrency(tx.balance_after)}
                       </div>
                     </div>
@@ -178,7 +178,7 @@ export default function HistoryPage() {
             {hasMore && (
               <Button
                 variant="outline"
-                className="w-full border-slate-600 text-slate-300 hover:bg-slate-700"
+                className="w-full border-gray-200 text-gray-600 hover:bg-gray-50"
                 onClick={() => loadTransactions(page + 1)}
                 disabled={loadingMore}
               >

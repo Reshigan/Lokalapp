@@ -143,16 +143,16 @@ export default function WiFiPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#4da6e8]" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 pb-6">
+    <div className="min-h-screen bg-gray-50 pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-cyan-500 via-blue-600 to-indigo-700 text-white p-6 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-[#1e3a5f] to-[#2d5a87] text-white p-6 rounded-b-3xl">
         <div className="flex items-center gap-3 mb-4">
           <Button 
             variant="ghost" 
@@ -171,7 +171,7 @@ export default function WiFiPage() {
             variant={activeTab === 'buy' ? 'secondary' : 'ghost'}
             size="sm"
             onClick={() => setActiveTab('buy')}
-            className={activeTab === 'buy' ? 'bg-white text-cyan-700' : 'text-white hover:bg-white/20'}
+            className={activeTab === 'buy' ? 'bg-white text-[#1e3a5f]' : 'text-white hover:bg-white/20'}
           >
             Buy Data
           </Button>
@@ -179,7 +179,7 @@ export default function WiFiPage() {
             variant={activeTab === 'vouchers' ? 'secondary' : 'ghost'}
             size="sm"
             onClick={() => setActiveTab('vouchers')}
-            className={activeTab === 'vouchers' ? 'bg-white text-cyan-700' : 'text-white hover:bg-white/20'}
+            className={activeTab === 'vouchers' ? 'bg-white text-[#1e3a5f]' : 'text-white hover:bg-white/20'}
           >
             My Vouchers ({vouchers.length})
           </Button>
@@ -192,19 +192,19 @@ export default function WiFiPage() {
             {packages.map((pkg) => (
               <Card 
                 key={pkg.id} 
-                className="cursor-pointer hover:shadow-lg transition-shadow bg-slate-800 border-slate-700"
+                className="cursor-pointer hover:shadow-lg transition-shadow bg-white border-0 shadow-md"
                 onClick={() => setSelectedPackage(pkg)}
               >
                 <CardContent className="p-4">
                   <div className="flex justify-between items-start">
                     <div className="flex gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+                      <div className="w-12 h-12 bg-[#4da6e8] rounded-2xl flex items-center justify-center shadow-lg">
                         <Wifi className="w-6 h-6 text-white" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-white">{pkg.name}</h3>
-                        <p className="text-sm text-slate-400">{pkg.description}</p>
-                        <div className="flex gap-3 mt-2 text-xs text-slate-500">
+                        <h3 className="font-semibold text-gray-900">{pkg.name}</h3>
+                        <p className="text-sm text-gray-500">{pkg.description}</p>
+                        <div className="flex gap-3 mt-2 text-xs text-gray-400">
                           <span className="flex items-center gap-1">
                             <Database className="w-3 h-3" />
                             {formatData(pkg.data_limit_mb)}
@@ -217,7 +217,7 @@ export default function WiFiPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-bold text-cyan-400">
+                      <p className="text-lg font-bold text-[#1e3a5f]">
                         {formatCurrency(pkg.price)}
                       </p>
                     </div>
@@ -229,12 +229,12 @@ export default function WiFiPage() {
         ) : (
           <div className="space-y-3">
             {vouchers.length === 0 ? (
-              <Card className="bg-slate-800 border-slate-700">
-                <CardContent className="p-6 text-center text-slate-400">
-                  <Wifi className="w-12 h-12 mx-auto mb-2 text-slate-600" />
+              <Card className="bg-white border-0 shadow-md">
+                <CardContent className="p-6 text-center text-gray-400">
+                  <Wifi className="w-12 h-12 mx-auto mb-2 text-gray-300" />
                   <p>No vouchers yet</p>
                   <Button 
-                    className="mt-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700"
+                    className="mt-4 bg-[#1e3a5f] hover:bg-[#2d5a87]"
                     onClick={() => setActiveTab('buy')}
                   >
                     Buy Your First Voucher
@@ -243,11 +243,11 @@ export default function WiFiPage() {
               </Card>
             ) : (
               vouchers.map((voucher) => (
-                <Card key={voucher.id} className="bg-slate-800 border-slate-700">
+                <Card key={voucher.id} className="bg-white border-0 shadow-md">
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start mb-3">
                       <div>
-                        <h3 className="font-semibold text-white">{voucher.package_name}</h3>
+                        <h3 className="font-semibold text-gray-900">{voucher.package_name}</h3>
                         <Badge variant={getStatusColor(voucher.status) as "default" | "secondary" | "destructive" | "outline"}>
                           {voucher.status}
                         </Badge>
@@ -256,7 +256,7 @@ export default function WiFiPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                          className="border-gray-200 text-gray-600 hover:bg-gray-50"
                           onClick={() => copyToClipboard(voucher.voucher_code)}
                         >
                           <Copy className="w-4 h-4" />
@@ -264,30 +264,30 @@ export default function WiFiPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="border-cyan-500 text-cyan-400 hover:bg-cyan-500/20"
+                          className="border-[#4da6e8] text-[#4da6e8] hover:bg-[#4da6e8]/10"
                           onClick={() => shareVoucher(voucher.voucher_code, voucher.package_name)}
                         >
                           <Share2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
-                    <div className="bg-slate-700 rounded-lg p-3 font-mono text-center text-lg text-white">
+                    <div className="bg-[#1e3a5f] rounded-lg p-3 font-mono text-center text-lg text-white">
                       {voucher.voucher_code}
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                       <div>
-                        <p className="text-slate-500">Data</p>
-                        <p className="font-medium text-white">
+                        <p className="text-gray-500">Data</p>
+                        <p className="font-medium text-gray-900">
                           {formatData(voucher.data_remaining_mb)} / {formatData(voucher.data_limit_mb)}
                         </p>
                       </div>
                       <div>
-                        <p className="text-slate-500">Validity</p>
-                        <p className="font-medium text-white">{formatValidity(voucher.validity_hours)}</p>
+                        <p className="text-gray-500">Validity</p>
+                        <p className="font-medium text-gray-900">{formatValidity(voucher.validity_hours)}</p>
                       </div>
                     </div>
                     {voucher.status === 'ACTIVE' && voucher.expires_at && (
-                      <p className="text-xs text-slate-500 mt-2">
+                      <p className="text-xs text-gray-500 mt-2">
                         Expires: {new Date(voucher.expires_at).toLocaleString()}
                       </p>
                     )}
@@ -301,35 +301,35 @@ export default function WiFiPage() {
 
       {/* Purchase Confirmation Dialog */}
       <Dialog open={!!selectedPackage && !purchaseResult} onOpenChange={() => setSelectedPackage(null)}>
-        <DialogContent className="max-w-sm mx-4 bg-slate-800 border-slate-700">
+        <DialogContent className="max-w-sm mx-4 bg-white border-0">
           <DialogHeader>
-            <DialogTitle className="text-white">Confirm Purchase</DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <DialogTitle className="text-[#1e3a5f]">Confirm Purchase</DialogTitle>
+            <DialogDescription className="text-gray-500">
               You are about to purchase a WiFi voucher
             </DialogDescription>
           </DialogHeader>
           {selectedPackage && (
             <div className="py-4">
-              <div className="bg-gradient-to-br from-cyan-500/20 to-blue-600/20 rounded-xl p-4 text-center border border-cyan-500/30">
-                <Wifi className="w-12 h-12 mx-auto text-cyan-400 mb-2" />
-                <h3 className="font-bold text-lg text-white">{selectedPackage.name}</h3>
-                <p className="text-slate-400">{selectedPackage.description}</p>
-                <div className="flex justify-center gap-4 mt-3 text-sm text-slate-300">
+              <div className="bg-[#4da6e8]/10 rounded-xl p-4 text-center border border-[#4da6e8]/30">
+                <Wifi className="w-12 h-12 mx-auto text-[#4da6e8] mb-2" />
+                <h3 className="font-bold text-lg text-gray-900">{selectedPackage.name}</h3>
+                <p className="text-gray-500">{selectedPackage.description}</p>
+                <div className="flex justify-center gap-4 mt-3 text-sm text-gray-600">
                   <span>{formatData(selectedPackage.data_limit_mb)}</span>
                   <span>{formatValidity(selectedPackage.validity_hours)}</span>
                 </div>
-                <p className="text-2xl font-bold text-cyan-400 mt-3">
+                <p className="text-2xl font-bold text-[#1e3a5f] mt-3">
                   {formatCurrency(selectedPackage.price)}
                 </p>
               </div>
             </div>
           )}
           <DialogFooter className="flex gap-2">
-            <Button variant="outline" onClick={() => setSelectedPackage(null)} className="border-slate-600 text-slate-300 hover:bg-slate-700">
+            <Button variant="outline" onClick={() => setSelectedPackage(null)} className="border-gray-200 text-gray-600 hover:bg-gray-50">
               Cancel
             </Button>
             <Button 
-              className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700"
+              className="bg-[#1e3a5f] hover:bg-[#2d5a87]"
               onClick={handlePurchase}
               disabled={purchasing}
             >
@@ -342,34 +342,34 @@ export default function WiFiPage() {
 
       {/* Purchase Success Dialog */}
       <Dialog open={!!purchaseResult} onOpenChange={() => setPurchaseResult(null)}>
-        <DialogContent className="max-w-sm mx-4 bg-slate-800 border-slate-700">
+        <DialogContent className="max-w-sm mx-4 bg-white border-0">
           <DialogHeader>
-            <DialogTitle className="text-center text-white">
-              <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Check className="w-8 h-8 text-emerald-400" />
+            <DialogTitle className="text-center text-gray-900">
+              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Check className="w-8 h-8 text-emerald-600" />
               </div>
               Purchase Successful!
             </DialogTitle>
           </DialogHeader>
           {purchaseResult && (
             <div className="py-4">
-              <p className="text-center text-slate-400 mb-4">
+              <p className="text-center text-gray-500 mb-4">
                 Your WiFi voucher code is:
               </p>
-              <div className="bg-slate-700 rounded-lg p-4 font-mono text-center text-xl text-white">
+              <div className="bg-[#1e3a5f] rounded-lg p-4 font-mono text-center text-xl text-white">
                 {purchaseResult.voucher_code}
               </div>
               <div className="flex gap-2 mt-4">
                 <Button
                   variant="outline"
-                  className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700"
+                  className="flex-1 border-gray-200 text-gray-600 hover:bg-gray-50"
                   onClick={() => copyToClipboard(purchaseResult.voucher_code)}
                 >
                   {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
                   {copied ? 'Copied!' : 'Copy'}
                 </Button>
                 <Button
-                  className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700"
+                  className="flex-1 bg-[#4da6e8] hover:bg-[#3d96d8]"
                   onClick={() => shareVoucher(purchaseResult.voucher_code, selectedPackage?.name || 'WiFi')}
                 >
                   <Share2 className="w-4 h-4 mr-2" />
@@ -380,7 +380,7 @@ export default function WiFiPage() {
           )}
           <DialogFooter>
             <Button 
-              className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700"
+              className="w-full bg-[#1e3a5f] hover:bg-[#2d5a87]"
               onClick={() => {
                 setPurchaseResult(null);
                 setSelectedPackage(null);

@@ -132,16 +132,16 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#1e3a5f]" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 pb-6">
+    <div className="min-h-screen bg-gray-50 pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 text-white p-6 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-[#1e3a5f] to-[#2d5a87] text-white p-6 rounded-b-3xl">
         <div className="flex items-center gap-3 mb-6">
           <Button 
             variant="ghost" 
@@ -165,7 +165,7 @@ export default function ProfilePage() {
                 ? `${user?.first_name || ''} ${user?.last_name || ''}`.trim()
                 : 'Set your name'}
             </h2>
-            <p className="text-emerald-100">{user?.phone_number}</p>
+            <p className="text-[#4da6e8]">{user?.phone_number}</p>
           </div>
           <Button
             variant="ghost"
@@ -181,16 +181,16 @@ export default function ProfilePage() {
       <div className="px-4 -mt-6">
         {/* Loyalty Card */}
         {loyalty && (
-          <Card className="mb-4 bg-slate-800 border-slate-700">
+          <Card className="mb-4 bg-white border-0 shadow-lg">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <div className="w-12 h-12 bg-[#4da6e8] rounded-2xl flex items-center justify-center shadow-lg">
                     <Gift className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <p className="text-sm text-slate-400">Loyalty Points</p>
-                    <p className="text-2xl font-bold text-white">{loyalty.points}</p>
+                    <p className="text-sm text-gray-500">Loyalty Points</p>
+                    <p className="text-2xl font-bold text-gray-900">{loyalty.points}</p>
                   </div>
                 </div>
                 <Badge className={getTierColor(loyalty.tier)}>
@@ -199,13 +199,13 @@ export default function ProfilePage() {
               </div>
               {loyalty.next_tier_points > 0 && (
                 <div className="mt-3">
-                  <div className="flex justify-between text-xs text-slate-400 mb-1">
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
                     <span>Progress to next tier</span>
                     <span>{loyalty.next_tier_points} points needed</span>
                   </div>
-                  <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full"
+                      className="h-full bg-[#4da6e8] rounded-full"
                       style={{ width: `${Math.min(100, (loyalty.points / (loyalty.points + loyalty.next_tier_points)) * 100)}%` }}
                     />
                   </div>
@@ -216,29 +216,29 @@ export default function ProfilePage() {
         )}
 
         {/* Account Details */}
-        <Card className="mb-4 bg-slate-800 border-slate-700">
+        <Card className="mb-4 bg-white border-0 shadow-md">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-white">Account Details</CardTitle>
+            <CardTitle className="text-lg text-[#1e3a5f]">Account Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-3">
-              <Phone className="w-5 h-5 text-slate-500" />
+              <Phone className="w-5 h-5 text-gray-400" />
               <div className="flex-1">
-                <p className="text-sm text-slate-400">Phone Number</p>
-                <p className="font-medium text-white">{user?.phone_number}</p>
+                <p className="text-sm text-gray-500">Phone Number</p>
+                <p className="font-medium text-gray-900">{user?.phone_number}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Mail className="w-5 h-5 text-slate-500" />
+              <Mail className="w-5 h-5 text-gray-400" />
               <div className="flex-1">
-                <p className="text-sm text-slate-400">Email</p>
-                <p className="font-medium text-white">{user?.email || 'Not set'}</p>
+                <p className="text-sm text-gray-500">Email</p>
+                <p className="font-medium text-gray-900">{user?.email || 'Not set'}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Shield className="w-5 h-5 text-slate-500" />
+              <Shield className="w-5 h-5 text-gray-400" />
               <div className="flex-1">
-                <p className="text-sm text-slate-400">KYC Status</p>
+                <p className="text-sm text-gray-500">KYC Status</p>
                 <Badge variant={getKycStatusColor(user?.kyc_status || 'NONE') as "default" | "secondary" | "destructive" | "outline"}>
                   {user?.kyc_status || 'Not Verified'}
                 </Badge>
@@ -249,23 +249,23 @@ export default function ProfilePage() {
 
         {/* Referral Code */}
         {user?.referral_code && (
-          <Card className="mb-4 bg-slate-800 border-slate-700">
+          <Card className="mb-4 bg-white border-0 shadow-md">
             <CardContent className="p-4">
-              <p className="text-sm text-slate-400 mb-2">Your Referral Code</p>
+              <p className="text-sm text-gray-500 mb-2">Your Referral Code</p>
               <div className="flex items-center gap-2">
-                <div className="flex-1 bg-slate-700 rounded-lg p-3 font-mono text-center text-white">
+                <div className="flex-1 bg-[#1e3a5f] rounded-lg p-3 font-mono text-center text-white">
                   {user.referral_code}
                 </div>
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={copyReferralCode}
-                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                  className="border-gray-200 text-gray-600 hover:bg-gray-50"
                 >
                   {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 </Button>
               </div>
-              <p className="text-xs text-slate-500 mt-2">
+              <p className="text-xs text-gray-500 mt-2">
                 Share this code and earn R10 for each friend who joins!
               </p>
             </CardContent>
@@ -273,14 +273,14 @@ export default function ProfilePage() {
         )}
 
         {/* Security */}
-        <Card className="mb-4 bg-slate-800 border-slate-700">
+        <Card className="mb-4 bg-white border-0 shadow-md">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-white">Security</CardTitle>
+            <CardTitle className="text-lg text-[#1e3a5f]">Security</CardTitle>
           </CardHeader>
           <CardContent>
             <Button
               variant="outline"
-              className="w-full justify-start border-slate-600 text-slate-300 hover:bg-slate-700"
+              className="w-full justify-start border-gray-200 text-gray-700 hover:bg-gray-50"
               onClick={() => setShowSetPin(true)}
             >
               <Lock className="w-5 h-5 mr-3" />
@@ -302,46 +302,46 @@ export default function ProfilePage() {
 
       {/* Edit Profile Dialog */}
       <Dialog open={showEditProfile} onOpenChange={setShowEditProfile}>
-        <DialogContent className="max-w-sm mx-4 bg-slate-800 border-slate-700">
+        <DialogContent className="max-w-sm mx-4 bg-white border-0">
           <DialogHeader>
-            <DialogTitle className="text-white">Edit Profile</DialogTitle>
+            <DialogTitle className="text-[#1e3a5f]">Edit Profile</DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div>
-              <label className="text-sm font-medium text-slate-300">First Name</label>
+              <label className="text-sm font-medium text-gray-700">First Name</label>
               <Input
                 placeholder="Enter first name"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
+                className="border-gray-200 focus:border-[#4da6e8] focus:ring-[#4da6e8]"
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-300">Last Name</label>
+              <label className="text-sm font-medium text-gray-700">Last Name</label>
               <Input
                 placeholder="Enter last name"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
+                className="border-gray-200 focus:border-[#4da6e8] focus:ring-[#4da6e8]"
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-300">Email</label>
+              <label className="text-sm font-medium text-gray-700">Email</label>
               <Input
                 type="email"
                 placeholder="Enter email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
+                className="border-gray-200 focus:border-[#4da6e8] focus:ring-[#4da6e8]"
               />
             </div>
           </div>
           <DialogFooter className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowEditProfile(false)} className="border-slate-600 text-slate-300 hover:bg-slate-700">
+            <Button variant="outline" onClick={() => setShowEditProfile(false)} className="border-gray-200 text-gray-600 hover:bg-gray-50">
               Cancel
             </Button>
             <Button 
-              className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700"
+              className="bg-[#1e3a5f] hover:bg-[#2d5a87]"
               onClick={handleUpdateProfile}
               disabled={saving}
             >
@@ -354,31 +354,31 @@ export default function ProfilePage() {
 
       {/* Set PIN Dialog */}
       <Dialog open={showSetPin} onOpenChange={setShowSetPin}>
-        <DialogContent className="max-w-sm mx-4 bg-slate-800 border-slate-700">
+        <DialogContent className="max-w-sm mx-4 bg-white border-0">
           <DialogHeader>
-            <DialogTitle className="text-white">{user?.has_pin ? 'Change PIN' : 'Set PIN'}</DialogTitle>
+            <DialogTitle className="text-[#1e3a5f]">{user?.has_pin ? 'Change PIN' : 'Set PIN'}</DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div>
-              <label className="text-sm font-medium text-slate-300">New PIN</label>
+              <label className="text-sm font-medium text-gray-700">New PIN</label>
               <Input
                 type="password"
                 placeholder="Enter 4-6 digit PIN"
                 value={pin}
                 onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 maxLength={6}
-                className="text-center tracking-widest bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
+                className="text-center tracking-widest border-gray-200 focus:border-[#4da6e8] focus:ring-[#4da6e8]"
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-300">Confirm PIN</label>
+              <label className="text-sm font-medium text-gray-700">Confirm PIN</label>
               <Input
                 type="password"
                 placeholder="Confirm PIN"
                 value={confirmPin}
                 onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 maxLength={6}
-                className="text-center tracking-widest bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
+                className="text-center tracking-widest border-gray-200 focus:border-[#4da6e8] focus:ring-[#4da6e8]"
               />
             </div>
           </div>
@@ -387,11 +387,11 @@ export default function ProfilePage() {
               setShowSetPin(false);
               setPin('');
               setConfirmPin('');
-            }} className="border-slate-600 text-slate-300 hover:bg-slate-700">
+            }} className="border-gray-200 text-gray-600 hover:bg-gray-50">
               Cancel
             </Button>
             <Button 
-              className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700"
+              className="bg-[#1e3a5f] hover:bg-[#2d5a87]"
               onClick={handleSetPin}
               disabled={saving || pin.length < 4 || pin !== confirmPin}
             >
