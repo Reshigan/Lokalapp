@@ -72,19 +72,19 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#1e3a5f]" />
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-[#F8F9FA] pb-20">
       {/* Header */}
-      <div className="bg-gradient-to-br from-[#1e3a5f] to-[#2d5a87] text-white p-6 pb-24 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-rose-500 to-pink-600 text-white p-6 pb-24 rounded-b-[30px]">
         <div className="flex justify-between items-start mb-6">
           <div>
-            <p className="text-[#4da6e8] text-sm">Admin Dashboard</p>
+            <p className="text-rose-100 text-sm">Admin Dashboard</p>
             <h1 className="text-xl font-bold">Lokal Platform</h1>
           </div>
           <Button 
@@ -98,16 +98,16 @@ export default function AdminDashboard() {
         </div>
         
         {/* Revenue Card */}
-        <Card className="bg-white/10 backdrop-blur border-0 text-white shadow-2xl">
+        <Card className="bg-white/20 backdrop-blur border-0 text-white shadow-xl">
           <CardContent className="p-5">
             <div className="flex justify-between items-center">
               <div>
-                <p className="text-[#4da6e8] text-sm">Total Revenue (30 days)</p>
+                <p className="text-rose-100 text-sm">Total Revenue (30 days)</p>
                 <p className="text-4xl font-bold tracking-tight">
                   {formatCurrency(stats?.revenue.last_30_days || 0)}
                 </p>
               </div>
-              <TrendingUp className="w-10 h-10 text-[#4da6e8]" />
+              <TrendingUp className="w-10 h-10 text-rose-100" />
             </div>
           </CardContent>
         </Card>
@@ -116,7 +116,7 @@ export default function AdminDashboard() {
       {/* Stats Grid */}
       <div className="px-4 -mt-12">
         <div className="grid grid-cols-2 gap-3 mb-4">
-          <Card className="bg-white border-0 shadow-md">
+          <Card className="bg-white border-0 shadow-lg rounded-2xl">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 text-gray-500 mb-1">
                 <Users className="w-4 h-4" />
@@ -126,7 +126,7 @@ export default function AdminDashboard() {
               <p className="text-xs text-emerald-600">+{stats?.users.new_30_days || 0} this month</p>
             </CardContent>
           </Card>
-          <Card className="bg-white border-0 shadow-md">
+          <Card className="bg-white border-0 shadow-lg rounded-2xl">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 text-gray-500 mb-1">
                 <UserCheck className="w-4 h-4" />
@@ -135,7 +135,7 @@ export default function AdminDashboard() {
               <p className="text-2xl font-bold text-gray-900">{stats?.agents.active || 0}</p>
             </CardContent>
           </Card>
-          <Card className="bg-white border-0 shadow-md">
+          <Card className="bg-white border-0 shadow-lg rounded-2xl">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 text-gray-500 mb-1">
                 <Wallet className="w-4 h-4" />
@@ -144,7 +144,7 @@ export default function AdminDashboard() {
               <p className="text-xl font-bold text-gray-900">{formatCurrency(stats?.wallets.total_balance || 0)}</p>
             </CardContent>
           </Card>
-          <Card className="bg-white border-0 shadow-md">
+          <Card className="bg-white border-0 shadow-lg rounded-2xl">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 text-gray-500 mb-1">
                 <DollarSign className="w-4 h-4" />
@@ -157,9 +157,9 @@ export default function AdminDashboard() {
 
         {/* Revenue Chart */}
         {revenue && revenue.daily_revenue.length > 0 && (
-          <Card className="mb-4 bg-white border-0 shadow-md">
+          <Card className="mb-4 bg-white border-0 shadow-lg rounded-2xl">
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg text-[#1e3a5f]">Revenue Trend</CardTitle>
+              <CardTitle className="text-lg text-gray-900">Revenue Trend</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-48">
@@ -176,9 +176,9 @@ export default function AdminDashboard() {
                       formatter={(value: number) => formatCurrency(value)}
                       labelFormatter={(label) => new Date(label).toLocaleDateString('en-ZA')}
                       contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-                      labelStyle={{ color: '#1e3a5f' }}
+                      labelStyle={{ color: '#374151' }}
                     />
-                    <Line type="monotone" dataKey="amount" stroke="#1e3a5f" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="amount" stroke="#F43F5E" strokeWidth={2} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -188,16 +188,16 @@ export default function AdminDashboard() {
 
         {/* Revenue by Product */}
         {revenue && (
-          <Card className="mb-4 bg-white border-0 shadow-md">
+          <Card className="mb-4 bg-white border-0 shadow-lg rounded-2xl">
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg text-[#1e3a5f]">Revenue by Product</CardTitle>
+              <CardTitle className="text-lg text-gray-900">Revenue by Product</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-[#4da6e8]/20 rounded-xl flex items-center justify-center">
-                      <Wifi className="w-4 h-4 text-[#4da6e8]" />
+                    <div className="w-8 h-8 bg-teal-100 rounded-xl flex items-center justify-center">
+                      <Wifi className="w-4 h-4 text-teal-600" />
                     </div>
                     <span className="text-gray-700">WiFi</span>
                   </div>
@@ -227,15 +227,15 @@ export default function AdminDashboard() {
         )}
 
         {/* Quick Links */}
-        <Card className="bg-white border-0 shadow-md">
+        <Card className="bg-white border-0 shadow-lg rounded-2xl">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-[#1e3a5f]">Management</CardTitle>
+            <CardTitle className="text-lg text-gray-900">Management</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="grid grid-cols-2 gap-3">
               <Button 
                 variant="outline"
-                className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50"
+                className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
                 onClick={() => navigate('/admin/users')}
               >
                 <Users className="w-5 h-5" />
@@ -243,7 +243,7 @@ export default function AdminDashboard() {
               </Button>
               <Button 
                 variant="outline"
-                className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50"
+                className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
                 onClick={() => navigate('/admin/agents')}
               >
                 <UserCheck className="w-5 h-5" />
@@ -251,7 +251,7 @@ export default function AdminDashboard() {
               </Button>
               <Button 
                 variant="outline"
-                className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50"
+                className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
                 onClick={() => navigate('/admin/products')}
               >
                 <Settings className="w-5 h-5" />
@@ -259,7 +259,7 @@ export default function AdminDashboard() {
               </Button>
               <Button 
                 variant="outline"
-                className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50"
+                className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
                 onClick={() => navigate('/admin/reports')}
               >
                 <BarChart3 className="w-5 h-5" />
@@ -270,15 +270,15 @@ export default function AdminDashboard() {
         </Card>
 
         {/* System Settings */}
-        <Card className="mt-4 bg-white border-0 shadow-md">
+        <Card className="mt-4 bg-white border-0 shadow-lg rounded-2xl">
           <CardContent className="p-4">
             <Button 
               variant="outline"
-              className="w-full h-14 justify-start gap-3 border-gray-200 text-gray-600 hover:bg-gray-50"
+              className="w-full h-14 justify-start gap-3 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
               onClick={() => navigate('/admin/settings')}
             >
-              <div className="w-10 h-10 bg-[#1e3a5f]/10 rounded-xl flex items-center justify-center">
-                <Cog className="w-5 h-5 text-[#1e3a5f]" />
+              <div className="w-10 h-10 bg-rose-100 rounded-xl flex items-center justify-center">
+                <Cog className="w-5 h-5 text-rose-500" />
               </div>
               <div className="text-left">
                 <p className="font-medium text-gray-900">System Settings</p>
@@ -292,7 +292,7 @@ export default function AdminDashboard() {
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3 shadow-lg">
         <div className="flex justify-around items-center max-w-md mx-auto">
-          <button className="flex flex-col items-center gap-1 text-[#1e3a5f]">
+          <button className="flex flex-col items-center gap-1 text-rose-500">
             <BarChart3 className="w-6 h-6" />
             <span className="text-xs font-medium">Dashboard</span>
           </button>

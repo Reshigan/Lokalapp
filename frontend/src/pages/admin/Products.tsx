@@ -80,16 +80,16 @@ export default function AdminProductsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#1e3a5f]" />
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-6">
+    <div className="min-h-screen bg-[#F8F9FA] pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-[#1e3a5f] to-[#2d5a87] text-white p-6 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-rose-500 to-pink-600 text-white p-6 rounded-b-[30px]">
         <div className="flex items-center gap-3 mb-4">
           <Button 
             variant="ghost" 
@@ -108,7 +108,7 @@ export default function AdminProductsPage() {
             variant={activeTab === 'wifi' ? 'secondary' : 'ghost'}
             size="sm"
             onClick={() => setActiveTab('wifi')}
-            className={activeTab === 'wifi' ? 'bg-white text-[#1e3a5f] shadow-lg' : 'text-white hover:bg-white/20'}
+            className={activeTab === 'wifi' ? 'bg-white text-rose-600 shadow-lg' : 'text-white hover:bg-white/20'}
           >
             <Wifi className="w-4 h-4 mr-1" />
             WiFi ({wifiPackages.length})
@@ -117,7 +117,7 @@ export default function AdminProductsPage() {
             variant={activeTab === 'electricity' ? 'secondary' : 'ghost'}
             size="sm"
             onClick={() => setActiveTab('electricity')}
-            className={activeTab === 'electricity' ? 'bg-white text-[#1e3a5f] shadow-lg' : 'text-white hover:bg-white/20'}
+            className={activeTab === 'electricity' ? 'bg-white text-rose-600 shadow-lg' : 'text-white hover:bg-white/20'}
           >
             <Zap className="w-4 h-4 mr-1" />
             Electricity ({electricityPackages.length})
@@ -133,8 +133,8 @@ export default function AdminProductsPage() {
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex gap-3">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${pkg.is_active ? 'bg-[#4da6e8]/20' : 'bg-gray-100'}`}>
-                        <Wifi className={`w-6 h-6 ${pkg.is_active ? 'text-[#4da6e8]' : 'text-gray-400'}`} />
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${pkg.is_active ? 'bg-teal-100' : 'bg-gray-100'}`}>
+                        <Wifi className={`w-6 h-6 ${pkg.is_active ? 'text-teal-600' : 'text-gray-400'}`} />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
@@ -151,7 +151,7 @@ export default function AdminProductsPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-bold text-[#4da6e8]">
+                      <p className="text-lg font-bold text-teal-600">
                         {formatCurrency(pkg.price)}
                       </p>
                     </div>

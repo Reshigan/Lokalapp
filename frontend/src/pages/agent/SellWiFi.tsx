@@ -124,16 +124,16 @@ export default function SellWiFiPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#4da6e8]" />
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-teal-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-6">
+    <div className="min-h-screen bg-[#F8F9FA] pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-[#1e3a5f] to-[#2d5a87] text-white p-6 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-teal-500 to-teal-600 text-white p-6 rounded-b-[30px]">
         <div className="flex items-center gap-3">
           <Button 
             variant="ghost" 
@@ -173,7 +173,7 @@ export default function SellWiFiPage() {
               key={pkg.id} 
               className={`cursor-pointer transition-all bg-white border-0 shadow-md ${
                 selectedPackage?.id === pkg.id 
-                  ? 'ring-2 ring-[#4da6e8] bg-[#4da6e8]/5' 
+                  ? 'ring-2 ring-teal-500 bg-teal-50' 
                   : 'hover:shadow-lg'
               }`}
               onClick={() => {
@@ -185,10 +185,10 @@ export default function SellWiFiPage() {
                 <div className="flex justify-between items-start">
                   <div className="flex gap-3">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${
-                      selectedPackage?.id === pkg.id ? 'bg-[#4da6e8]' : 'bg-gray-100'
+                      selectedPackage?.id === pkg.id ? 'bg-teal-500' : 'bg-gray-100'
                     }`}>
                       <Wifi className={`w-6 h-6 ${
-                        selectedPackage?.id === pkg.id ? 'text-white' : 'text-[#4da6e8]'
+                        selectedPackage?.id === pkg.id ? 'text-white' : 'text-teal-500'
                       }`} />
                     </div>
                     <div>
@@ -205,7 +205,7 @@ export default function SellWiFiPage() {
                       </div>
                     </div>
                   </div>
-                  <p className="text-lg font-bold text-[#1e3a5f]">
+                  <p className="text-lg font-bold text-teal-600">
                     {formatCurrency(pkg.price)}
                   </p>
                 </div>
@@ -241,7 +241,7 @@ export default function SellWiFiPage() {
 
         {/* Sell Button */}
         <Button
-          className="w-full h-14 text-lg bg-[#1e3a5f] hover:bg-[#2d5a87]"
+          className="w-full h-14 text-lg bg-teal-600 hover:bg-teal-700 rounded-xl"
           onClick={handleSell}
           disabled={processing || !selectedPackage || !customerPhone || parseFloat(cashReceived) < (selectedPackage?.price || 0)}
         >
@@ -269,12 +269,12 @@ export default function SellWiFiPage() {
               <p className="text-center text-gray-500 mb-2">
                 WiFi Voucher Code:
               </p>
-              <div className="bg-[#1e3a5f] rounded-xl p-4 font-mono text-center text-xl text-white">
+              <div className="bg-teal-600 rounded-xl p-4 font-mono text-center text-xl text-white">
                 {result.voucher_code}
               </div>
               <Button
                 variant="outline"
-                className="w-full mt-4 border-gray-200 text-gray-600 hover:bg-gray-50"
+                className="w-full mt-4 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
                 onClick={() => copyToClipboard(result.voucher_code)}
               >
                 {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
@@ -284,7 +284,7 @@ export default function SellWiFiPage() {
           )}
           <DialogFooter>
             <Button 
-              className="w-full bg-[#1e3a5f] hover:bg-[#2d5a87]"
+              className="w-full bg-teal-600 hover:bg-teal-700 rounded-xl"
               onClick={() => {
                 setResult(null);
                 setSelectedPackage(null);

@@ -102,16 +102,16 @@ export default function SellElectricityPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-6">
+    <div className="min-h-screen bg-[#F8F9FA] pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-[#1e3a5f] to-[#2d5a87] text-white p-6 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-amber-500 to-orange-500 text-white p-6 rounded-b-[30px]">
         <div className="flex items-center gap-3">
           <Button 
             variant="ghost" 
@@ -193,7 +193,7 @@ export default function SellElectricityPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-bold text-[#1e3a5f]">
+                    <p className="text-lg font-bold text-amber-600">
                       {formatCurrency(pkg.price)}
                     </p>
                     {pkg.kwh_amount && (
@@ -235,7 +235,7 @@ export default function SellElectricityPage() {
 
         {/* Sell Button */}
         <Button
-          className="w-full h-14 text-lg bg-[#1e3a5f] hover:bg-[#2d5a87]"
+          className="w-full h-14 text-lg bg-amber-600 hover:bg-amber-700 rounded-xl"
           onClick={handleSell}
           disabled={processing || !selectedPackage || !customerPhone || !meterNumber || parseFloat(cashReceived) < (selectedPackage?.price || 0)}
         >
@@ -273,7 +273,7 @@ export default function SellElectricityPage() {
           )}
           <DialogFooter>
             <Button 
-              className="w-full bg-[#1e3a5f] hover:bg-[#2d5a87]"
+              className="w-full bg-amber-600 hover:bg-amber-700 rounded-xl"
               onClick={() => {
                 setResult(null);
                 setSelectedPackage(null);

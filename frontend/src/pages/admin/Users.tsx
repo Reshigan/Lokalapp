@@ -110,9 +110,9 @@ export default function AdminUsersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-6">
+    <div className="min-h-screen bg-[#F8F9FA] pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-[#1e3a5f] to-[#2d5a87] text-white p-6 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-rose-500 to-pink-600 text-white p-6 rounded-b-[30px]">
         <div className="flex items-center gap-3 mb-4">
           <Button 
             variant="ghost" 
@@ -128,18 +128,18 @@ export default function AdminUsersPage() {
         {/* Search */}
         <div className="flex gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#4da6e8]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-rose-200" />
             <Input
               type="text"
               placeholder="Search by phone or name"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-[#4da6e8]"
+              className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-rose-200"
             />
           </div>
           <Button 
-            className="bg-white text-[#1e3a5f] hover:bg-gray-50 shadow-lg"
+            className="bg-white text-rose-600 hover:bg-gray-50 shadow-lg"
             onClick={handleSearch}
           >
             Search
@@ -152,7 +152,7 @@ export default function AdminUsersPage() {
         
         {loading ? (
           <div className="flex justify-center py-8">
-            <Loader2 className="w-8 h-8 animate-spin text-[#1e3a5f]" />
+            <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
           </div>
         ) : users.length === 0 ? (
           <Card className="bg-white border-0 shadow-md">
@@ -171,8 +171,8 @@ export default function AdminUsersPage() {
               >
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-[#4da6e8]/20 rounded-xl flex items-center justify-center">
-                      <User className="w-6 h-6 text-[#4da6e8]" />
+                    <div className="w-12 h-12 bg-rose-100 rounded-xl flex items-center justify-center">
+                      <User className="w-6 h-6 text-rose-500" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -228,15 +228,15 @@ export default function AdminUsersPage() {
 
       {/* User Detail Dialog */}
       <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
-        <DialogContent className="max-w-sm mx-4 bg-white border-0">
+        <DialogContent className="max-w-sm mx-4 bg-white border-0 rounded-3xl">
           <DialogHeader>
-            <DialogTitle className="text-[#1e3a5f]">User Details</DialogTitle>
+            <DialogTitle className="text-gray-900">User Details</DialogTitle>
           </DialogHeader>
           {selectedUser && (
             <div className="py-4 space-y-4">
               <div className="text-center">
-                <div className="w-16 h-16 bg-[#4da6e8]/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <User className="w-8 h-8 text-[#4da6e8]" />
+                <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <User className="w-8 h-8 text-rose-500" />
                 </div>
                 <h3 className="font-bold text-lg text-gray-900">
                   {selectedUser.first_name || selectedUser.last_name 

@@ -171,16 +171,16 @@ export default function AdminSettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#1e3a5f]" />
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-6">
+    <div className="min-h-screen bg-[#F8F9FA] pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-[#1e3a5f] to-[#2d5a87] text-white p-6 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-rose-500 to-pink-600 text-white p-6 rounded-b-[30px]">
         <div className="flex items-center gap-3">
           <Button 
             variant="ghost" 
@@ -214,10 +214,10 @@ export default function AdminSettingsPage() {
           {/* Payment Gateways Tab */}
           <TabsContent value="payment" className="space-y-3">
             <div className="flex justify-between items-center">
-              <h2 className="text-lg font-semibold text-[#1e3a5f]">Payment Gateways</h2>
-              <Button 
-                size="sm" 
-                className="bg-[#1e3a5f]"
+                <h2 className="text-lg font-semibold text-gray-900">Payment Gateways</h2>
+                <Button 
+                  size="sm" 
+                  className="bg-rose-500 hover:bg-rose-600"
                 onClick={() => {
                   setEditingGateway({
                     id: '',
@@ -289,10 +289,10 @@ export default function AdminSettingsPage() {
           {/* Bank Accounts Tab */}
           <TabsContent value="bank" className="space-y-3">
             <div className="flex justify-between items-center">
-              <h2 className="text-lg font-semibold text-[#1e3a5f]">Bank Accounts</h2>
-              <Button 
-                size="sm" 
-                className="bg-[#1e3a5f]"
+                <h2 className="text-lg font-semibold text-gray-900">Bank Accounts</h2>
+                <Button 
+                  size="sm" 
+                  className="bg-rose-500 hover:bg-rose-600"
                 onClick={() => {
                   setEditingBank({
                     id: '',
@@ -324,14 +324,14 @@ export default function AdminSettingsPage() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bank.is_primary ? 'bg-[#4da6e8]/20' : 'bg-gray-100'}`}>
-                          <Building2 className={`w-5 h-5 ${bank.is_primary ? 'text-[#4da6e8]' : 'text-gray-400'}`} />
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bank.is_primary ? 'bg-rose-100' : 'bg-gray-100'}`}>
+                          <Building2 className={`w-5 h-5 ${bank.is_primary ? 'text-rose-500' : 'text-gray-400'}`} />
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
                             <h3 className="font-semibold text-gray-900">{bank.bank_name}</h3>
                             {bank.is_primary && (
-                              <Badge className="bg-[#4da6e8]">Primary</Badge>
+                              <Badge className="bg-rose-500">Primary</Badge>
                             )}
                           </div>
                           <p className="text-sm text-gray-500">{bank.account_name}</p>
@@ -367,10 +367,10 @@ export default function AdminSettingsPage() {
           {/* IoT Devices Tab */}
           <TabsContent value="iot" className="space-y-3">
             <div className="flex justify-between items-center">
-              <h2 className="text-lg font-semibold text-[#1e3a5f]">IoT Devices</h2>
-              <Button 
-                size="sm" 
-                className="bg-[#1e3a5f]"
+                <h2 className="text-lg font-semibold text-gray-900">IoT Devices</h2>
+                <Button 
+                  size="sm" 
+                  className="bg-rose-500 hover:bg-rose-600"
                 onClick={() => {
                   setEditingDevice({
                     id: '',

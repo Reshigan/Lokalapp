@@ -84,16 +84,16 @@ export default function AgentDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#1e3a5f]" />
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
       </div>
     );
   }
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md bg-white border-0 shadow-lg">
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-white border-0 shadow-lg rounded-3xl">
           <CardContent className="p-6 text-center">
             <Users className="w-16 h-16 mx-auto text-gray-300 mb-4" />
             <h2 className="text-xl font-bold mb-2 text-gray-900">Not an Agent Yet</h2>
@@ -101,7 +101,7 @@ export default function AgentDashboard() {
               Register as an agent to start earning commissions
             </p>
             <Button 
-              className="w-full bg-[#1e3a5f] hover:bg-[#2d5a87]"
+              className="w-full bg-indigo-600 hover:bg-indigo-700"
               onClick={() => navigate('/agent/register')}
             >
               Register as Agent
@@ -120,18 +120,18 @@ export default function AgentDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-[#F8F9FA] pb-20">
       {/* Header */}
-      <div className="bg-gradient-to-br from-[#1e3a5f] to-[#2d5a87] text-white p-6 pb-28 rounded-b-3xl">
+      <div className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-6 pb-28 rounded-b-[30px]">
         <div className="flex justify-between items-start mb-6">
           <div>
-            <p className="text-[#4da6e8] text-sm">Agent Portal</p>
+            <p className="text-indigo-200 text-sm">Agent Portal</p>
             <h1 className="text-xl font-bold">{profile.business_name}</h1>
             <div className="flex items-center gap-2 mt-1">
               <Badge className={`${getTierColor(profile.tier)} text-white border-0`}>
                 {profile.tier}
               </Badge>
-              <span className="text-[#4da6e8] text-sm">{profile.agent_code}</span>
+              <span className="text-indigo-200 text-sm">{profile.agent_code}</span>
             </div>
           </div>
           <Button 
@@ -145,11 +145,11 @@ export default function AgentDashboard() {
         </div>
         
         {/* Float Balance Card */}
-        <Card className={`bg-white/10 backdrop-blur border-0 text-white shadow-2xl ${floatInfo?.is_low ? 'ring-2 ring-amber-400' : ''}`}>
+        <Card className={`bg-white/20 backdrop-blur border-0 text-white shadow-xl ${floatInfo?.is_low ? 'ring-2 ring-amber-400' : ''}`}>
           <CardContent className="p-5">
             <div className="flex justify-between items-center">
               <div>
-                <p className="text-[#4da6e8] text-sm">Float Balance</p>
+                <p className="text-indigo-200 text-sm">Float Balance</p>
                 <p className="text-4xl font-bold tracking-tight">
                   {formatCurrency(floatInfo?.float_balance || 0)}
                 </p>
@@ -162,7 +162,7 @@ export default function AgentDashboard() {
               </div>
               <Button 
                 size="sm" 
-                className="bg-white text-[#1e3a5f] hover:bg-gray-50 shadow-lg"
+                className="bg-white text-indigo-600 hover:bg-gray-50 shadow-lg"
                 onClick={() => navigate('/agent/float')}
               >
                 <Plus className="w-4 h-4 mr-1" />
@@ -176,7 +176,7 @@ export default function AgentDashboard() {
       {/* Stats Grid */}
       <div className="px-4 -mt-14">
         <div className="grid grid-cols-2 gap-3 mb-4">
-          <Card className="bg-white border-0 shadow-md">
+          <Card className="bg-white border-0 shadow-lg rounded-2xl">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 text-gray-500 mb-1">
                 <TrendingUp className="w-4 h-4" />
@@ -185,7 +185,7 @@ export default function AgentDashboard() {
               <p className="text-xl font-bold text-gray-900">{formatCurrency(profile.monthly_sales)}</p>
             </CardContent>
           </Card>
-          <Card className="bg-white border-0 shadow-md">
+          <Card className="bg-white border-0 shadow-lg rounded-2xl">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 text-gray-500 mb-1">
                 <DollarSign className="w-4 h-4" />
@@ -197,21 +197,21 @@ export default function AgentDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <Card className="mb-4 bg-white border-0 shadow-md">
+        <Card className="mb-4 bg-white border-0 shadow-lg rounded-2xl">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-[#1e3a5f]">Quick Actions</CardTitle>
+            <CardTitle className="text-lg text-gray-900">Quick Actions</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="grid grid-cols-2 gap-3">
               <Button 
-                className="h-20 flex-col gap-2 bg-[#4da6e8] hover:bg-[#3d96d8]"
+                className="h-20 flex-col gap-2 bg-gradient-to-br from-teal-400 to-teal-600 hover:from-teal-500 hover:to-teal-700 rounded-xl"
                 onClick={() => navigate('/agent/sell/wifi')}
               >
                 <Wifi className="w-6 h-6" />
                 Sell WiFi
               </Button>
               <Button 
-                className="h-20 flex-col gap-2 bg-gradient-to-br from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600"
+                className="h-20 flex-col gap-2 bg-gradient-to-br from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 rounded-xl"
                 onClick={() => navigate('/agent/sell/electricity')}
               >
                 <Zap className="w-6 h-6" />
@@ -219,7 +219,7 @@ export default function AgentDashboard() {
               </Button>
               <Button 
                 variant="outline"
-                className="h-20 flex-col gap-2 border-gray-200 text-gray-600 hover:bg-gray-50"
+                className="h-20 flex-col gap-2 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
                 onClick={() => navigate('/agent/customers')}
               >
                 <Search className="w-6 h-6" />
@@ -227,7 +227,7 @@ export default function AgentDashboard() {
               </Button>
               <Button 
                 variant="outline"
-                className="h-20 flex-col gap-2 border-gray-200 text-gray-600 hover:bg-gray-50"
+                className="h-20 flex-col gap-2 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
                 onClick={() => navigate('/agent/customers/new')}
               >
                 <Plus className="w-6 h-6" />
@@ -238,9 +238,9 @@ export default function AgentDashboard() {
         </Card>
 
         {/* Performance Summary */}
-        <Card className="bg-white border-0 shadow-md">
+        <Card className="bg-white border-0 shadow-lg rounded-2xl">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-[#1e3a5f]">Performance</CardTitle>
+            <CardTitle className="text-lg text-gray-900">Performance</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="space-y-3">
@@ -268,7 +268,7 @@ export default function AgentDashboard() {
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3 shadow-lg">
         <div className="flex justify-around items-center max-w-md mx-auto">
-          <button className="flex flex-col items-center gap-1 text-[#1e3a5f]">
+          <button className="flex flex-col items-center gap-1 text-indigo-600">
             <Wallet className="w-6 h-6" />
             <span className="text-xs font-medium">Home</span>
           </button>
