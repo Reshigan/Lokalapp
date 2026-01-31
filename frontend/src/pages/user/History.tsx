@@ -77,27 +77,19 @@ export default function HistoryPage() {
     });
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'COMPLETED': return 'success';
-      case 'PENDING': return 'warning';
-      case 'FAILED': return 'destructive';
-      default: return 'secondary';
-    }
-  };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#1e3a5f]" />
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#E84393]" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-6">
+    <div className="min-h-screen bg-[#F8F9FA] pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-[#1e3a5f] to-[#2d5a87] text-white p-6 rounded-b-3xl">
+      <div className="bg-gradient-to-r from-[#E84393] to-[#FD79A8] text-white p-6 rounded-b-[30px]">
         <div className="flex items-center gap-3">
           <Button 
             variant="ghost" 
@@ -113,7 +105,7 @@ export default function HistoryPage() {
 
       <div className="px-4 mt-4">
         {transactions.length === 0 ? (
-          <Card className="bg-white border-0 shadow-md">
+          <Card className="bg-white border-0 shadow-md rounded-2xl">
             <CardContent className="p-6 text-center text-gray-400">
               <HistoryIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
               <p>No transactions yet</p>
@@ -123,16 +115,16 @@ export default function HistoryPage() {
         ) : (
           <div className="space-y-3">
             {transactions.map((tx) => (
-              <Card key={tx.id} className="bg-white border-0 shadow-md">
+              <Card key={tx.id} className="bg-white border-0 shadow-sm rounded-2xl">
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                      tx.amount > 0 ? 'bg-emerald-100' : 'bg-rose-100'
+                      tx.amount > 0 ? 'bg-[#00B894]/10' : 'bg-[#E84393]/10'
                     }`}>
                       {tx.amount > 0 ? (
-                        <ArrowDownLeft className="w-5 h-5 text-emerald-600" />
+                        <ArrowDownLeft className="w-5 h-5 text-[#00B894]" />
                       ) : (
-                        <ArrowUpRight className="w-5 h-5 text-rose-600" />
+                        <ArrowUpRight className="w-5 h-5 text-[#E84393]" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -147,7 +139,7 @@ export default function HistoryPage() {
                         </div>
                         <div className="text-right">
                           <p className={`font-semibold ${
-                            tx.amount > 0 ? 'text-emerald-600' : 'text-gray-900'
+                            tx.amount > 0 ? 'text-[#00B894]' : 'text-gray-900'
                           }`}>
                             {tx.amount > 0 ? '+' : ''}{formatCurrency(tx.amount)}
                           </p>
@@ -159,7 +151,12 @@ export default function HistoryPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 mt-2">
-                        <Badge variant={getStatusColor(tx.status) as "default" | "secondary" | "destructive" | "outline"}>
+                        <Badge className={
+                          tx.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-600 border-emerald-200' :
+                          tx.status === 'PENDING' ? 'bg-amber-100 text-amber-600 border-amber-200' :
+                          tx.status === 'FAILED' ? 'bg-red-100 text-red-600 border-red-200' :
+                          'bg-gray-100 text-gray-600 border-gray-200'
+                        }>
                           {tx.status}
                         </Badge>
                         <span className="text-xs text-gray-500">
@@ -178,7 +175,7 @@ export default function HistoryPage() {
             {hasMore && (
               <Button
                 variant="outline"
-                className="w-full border-gray-200 text-gray-600 hover:bg-gray-50"
+                className="w-full border-gray-200 text-gray-600 hover:bg-gray-100 rounded-xl"
                 onClick={() => loadTransactions(page + 1)}
                 disabled={loadingMore}
               >

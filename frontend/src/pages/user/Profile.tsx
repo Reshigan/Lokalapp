@@ -132,16 +132,16 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#1e3a5f]" />
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#6C5CE7]" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-6">
+    <div className="min-h-screen bg-[#F8F9FA] pb-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-[#1e3a5f] to-[#2d5a87] text-white p-6 rounded-b-3xl">
+      <div className="bg-gradient-to-r from-[#6C5CE7] to-[#A29BFE] text-white p-6 rounded-b-[30px]">
         <div className="flex items-center gap-3 mb-6">
           <Button 
             variant="ghost" 
@@ -165,7 +165,7 @@ export default function ProfilePage() {
                 ? `${user?.first_name || ''} ${user?.last_name || ''}`.trim()
                 : 'Set your name'}
             </h2>
-            <p className="text-[#4da6e8]">{user?.phone_number}</p>
+            <p className="text-white/80">{user?.phone_number}</p>
           </div>
           <Button
             variant="ghost"
@@ -181,11 +181,11 @@ export default function ProfilePage() {
       <div className="px-4 -mt-6">
         {/* Loyalty Card */}
         {loyalty && (
-          <Card className="mb-4 bg-white border-0 shadow-lg">
+          <Card className="mb-4 bg-white border-0 shadow-lg rounded-2xl">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-[#4da6e8] rounded-2xl flex items-center justify-center shadow-lg">
+                  <div className="w-12 h-12 bg-gradient-to-br from-[#E84393] to-[#FD79A8] rounded-2xl flex items-center justify-center">
                     <Gift className="w-6 h-6 text-white" />
                   </div>
                   <div>
@@ -205,7 +205,7 @@ export default function ProfilePage() {
                   </div>
                   <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-[#4da6e8] rounded-full"
+                      className="h-full bg-gradient-to-r from-[#6C5CE7] to-[#A29BFE] rounded-full"
                       style={{ width: `${Math.min(100, (loyalty.points / (loyalty.points + loyalty.next_tier_points)) * 100)}%` }}
                     />
                   </div>
@@ -216,9 +216,9 @@ export default function ProfilePage() {
         )}
 
         {/* Account Details */}
-        <Card className="mb-4 bg-white border-0 shadow-md">
+        <Card className="mb-4 bg-white border-0 shadow-md rounded-2xl">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-[#1e3a5f]">Account Details</CardTitle>
+            <CardTitle className="text-lg text-gray-900">Account Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-3">
@@ -249,20 +249,20 @@ export default function ProfilePage() {
 
         {/* Referral Code */}
         {user?.referral_code && (
-          <Card className="mb-4 bg-white border-0 shadow-md">
+          <Card className="mb-4 bg-white border-0 shadow-md rounded-2xl">
             <CardContent className="p-4">
               <p className="text-sm text-gray-500 mb-2">Your Referral Code</p>
               <div className="flex items-center gap-2">
-                <div className="flex-1 bg-[#1e3a5f] rounded-lg p-3 font-mono text-center text-white">
+                <div className="flex-1 bg-gradient-to-r from-[#00B894] to-[#00CEC9] rounded-xl p-3 font-mono text-center text-white">
                   {user.referral_code}
                 </div>
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={copyReferralCode}
-                  className="border-gray-200 text-gray-600 hover:bg-gray-50"
+                  className="border-gray-200 text-gray-600 hover:bg-gray-100 rounded-xl"
                 >
-                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {copied ? <Check className="w-4 h-4 text-[#00B894]" /> : <Copy className="w-4 h-4" />}
                 </Button>
               </div>
               <p className="text-xs text-gray-500 mt-2">
@@ -273,9 +273,9 @@ export default function ProfilePage() {
         )}
 
         {/* Security */}
-        <Card className="mb-4 bg-white border-0 shadow-md">
+        <Card className="mb-4 bg-white border-0 shadow-md rounded-2xl">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-[#1e3a5f]">Security</CardTitle>
+            <CardTitle className="text-lg text-gray-900">Security</CardTitle>
           </CardHeader>
           <CardContent>
             <Button
@@ -302,9 +302,9 @@ export default function ProfilePage() {
 
       {/* Edit Profile Dialog */}
       <Dialog open={showEditProfile} onOpenChange={setShowEditProfile}>
-        <DialogContent className="max-w-sm mx-4 bg-white border-0">
+        <DialogContent className="max-w-sm mx-4 bg-white border-0 rounded-3xl shadow-xl">
           <DialogHeader>
-            <DialogTitle className="text-[#1e3a5f]">Edit Profile</DialogTitle>
+            <DialogTitle className="text-gray-900">Edit Profile</DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div>
@@ -313,7 +313,7 @@ export default function ProfilePage() {
                 placeholder="Enter first name"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                className="border-gray-200 focus:border-[#4da6e8] focus:ring-[#4da6e8]"
+                className="border-gray-200 focus:border-[#6C5CE7] focus:ring-[#6C5CE7] rounded-xl"
               />
             </div>
             <div>
@@ -322,7 +322,7 @@ export default function ProfilePage() {
                 placeholder="Enter last name"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                className="border-gray-200 focus:border-[#4da6e8] focus:ring-[#4da6e8]"
+                className="border-gray-200 focus:border-[#6C5CE7] focus:ring-[#6C5CE7] rounded-xl"
               />
             </div>
             <div>
@@ -332,16 +332,16 @@ export default function ProfilePage() {
                 placeholder="Enter email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="border-gray-200 focus:border-[#4da6e8] focus:ring-[#4da6e8]"
+                className="border-gray-200 focus:border-[#6C5CE7] focus:ring-[#6C5CE7] rounded-xl"
               />
             </div>
           </div>
           <DialogFooter className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowEditProfile(false)} className="border-gray-200 text-gray-600 hover:bg-gray-50">
+            <Button variant="outline" onClick={() => setShowEditProfile(false)} className="flex-1 bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-200 rounded-xl">
               Cancel
             </Button>
             <Button 
-              className="bg-[#1e3a5f] hover:bg-[#2d5a87]"
+              className="flex-1 bg-[#6C5CE7] hover:bg-[#5B4BD6] text-white font-semibold rounded-xl"
               onClick={handleUpdateProfile}
               disabled={saving}
             >
@@ -354,9 +354,9 @@ export default function ProfilePage() {
 
       {/* Set PIN Dialog */}
       <Dialog open={showSetPin} onOpenChange={setShowSetPin}>
-        <DialogContent className="max-w-sm mx-4 bg-white border-0">
+        <DialogContent className="max-w-sm mx-4 bg-white border-0 rounded-3xl shadow-xl">
           <DialogHeader>
-            <DialogTitle className="text-[#1e3a5f]">{user?.has_pin ? 'Change PIN' : 'Set PIN'}</DialogTitle>
+            <DialogTitle className="text-gray-900">{user?.has_pin ? 'Change PIN' : 'Set PIN'}</DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div>
@@ -367,7 +367,7 @@ export default function ProfilePage() {
                 value={pin}
                 onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 maxLength={6}
-                className="text-center tracking-widest border-gray-200 focus:border-[#4da6e8] focus:ring-[#4da6e8]"
+                className="text-center tracking-widest border-gray-200 focus:border-[#6C5CE7] focus:ring-[#6C5CE7] rounded-xl"
               />
             </div>
             <div>
@@ -378,7 +378,7 @@ export default function ProfilePage() {
                 value={confirmPin}
                 onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 maxLength={6}
-                className="text-center tracking-widest border-gray-200 focus:border-[#4da6e8] focus:ring-[#4da6e8]"
+                className="text-center tracking-widest border-gray-200 focus:border-[#6C5CE7] focus:ring-[#6C5CE7] rounded-xl"
               />
             </div>
           </div>
@@ -387,11 +387,11 @@ export default function ProfilePage() {
               setShowSetPin(false);
               setPin('');
               setConfirmPin('');
-            }} className="border-gray-200 text-gray-600 hover:bg-gray-50">
+            }} className="flex-1 bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-200 rounded-xl">
               Cancel
             </Button>
             <Button 
-              className="bg-[#1e3a5f] hover:bg-[#2d5a87]"
+              className="flex-1 bg-[#6C5CE7] hover:bg-[#5B4BD6] text-white font-semibold rounded-xl"
               onClick={handleSetPin}
               disabled={saving || pin.length < 4 || pin !== confirmPin}
             >
