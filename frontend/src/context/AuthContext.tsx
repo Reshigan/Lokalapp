@@ -12,6 +12,8 @@ interface User {
   referral_code: string | null;
   loyalty_points: number;
   has_pin: boolean;
+  is_agent?: boolean;
+  is_admin?: boolean;
 }
 
 interface AuthContextType {

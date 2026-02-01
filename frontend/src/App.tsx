@@ -9,6 +9,7 @@ import HistoryPage from './pages/user/History';
 import ProfilePage from './pages/user/Profile';
 import TopupPage from './pages/user/Topup';
 import UserOnboarding from './pages/user/Onboarding';
+import VouchersPage from './pages/user/Vouchers';
 import AgentDashboard from './pages/agent/Dashboard';
 import SellWiFiPage from './pages/agent/SellWiFi';
 import SellElectricityPage from './pages/agent/SellElectricity';
@@ -17,12 +18,15 @@ import CustomersPage from './pages/agent/Customers';
 import RegisterCustomerPage from './pages/agent/RegisterCustomer';
 import FloatPage from './pages/agent/Float';
 import AgentOnboarding from './pages/agent/Onboarding';
+import SalesReportsPage from './pages/agent/SalesReports';
+import AlertsPage from './pages/agent/Alerts';
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminUsersPage from './pages/admin/Users';
 import AdminAgentsPage from './pages/admin/Agents';
 import AdminProductsPage from './pages/admin/Products';
 import AdminReportsPage from './pages/admin/Reports';
 import AdminSettingsPage from './pages/admin/Settings';
+import AdminAuditLogsPage from './pages/admin/AuditLogs';
 import { Loader2 } from 'lucide-react';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -44,7 +48,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return (
@@ -54,9 +58,17 @@ function AppRoutes() {
     );
   }
 
+  // Determine default route based on user role
+  const getDefaultRoute = () => {
+    if (!isAuthenticated) return '/login';
+    if (user?.is_admin) return '/admin';
+    if (user?.is_agent) return '/agent';
+    return '/user';
+  };
+
   return (
     <Routes>
-      <Route path="/login" element={isAuthenticated ? <Navigate to="/user" replace /> : <Login />} />
+      <Route path="/login" element={isAuthenticated ? <Navigate to={getDefaultRoute()} replace /> : <Login />} />
       <Route path="/register/agent" element={<RegisterAgent />} />
       
       {/* User Routes */}
@@ -67,6 +79,7 @@ function AppRoutes() {
       <Route path="/user/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
       <Route path="/user/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       <Route path="/user/topup" element={<ProtectedRoute><TopupPage /></ProtectedRoute>} />
+      <Route path="/user/vouchers" element={<ProtectedRoute><VouchersPage /></ProtectedRoute>} />
       
       {/* Agent Routes */}
       <Route path="/agent" element={<ProtectedRoute><AgentDashboard /></ProtectedRoute>} />
@@ -77,6 +90,8 @@ function AppRoutes() {
       <Route path="/agent/customers" element={<ProtectedRoute><CustomersPage /></ProtectedRoute>} />
       <Route path="/agent/customers/new" element={<ProtectedRoute><RegisterCustomerPage /></ProtectedRoute>} />
       <Route path="/agent/float" element={<ProtectedRoute><FloatPage /></ProtectedRoute>} />
+      <Route path="/agent/reports" element={<ProtectedRoute><SalesReportsPage /></ProtectedRoute>} />
+      <Route path="/agent/alerts" element={<ProtectedRoute><AlertsPage /></ProtectedRoute>} />
       
       {/* Admin Routes */}
       <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
@@ -85,10 +100,11 @@ function AppRoutes() {
       <Route path="/admin/products" element={<ProtectedRoute><AdminProductsPage /></ProtectedRoute>} />
       <Route path="/admin/reports" element={<ProtectedRoute><AdminReportsPage /></ProtectedRoute>} />
       <Route path="/admin/settings" element={<ProtectedRoute><AdminSettingsPage /></ProtectedRoute>} />
+      <Route path="/admin/audit-logs" element={<ProtectedRoute><AdminAuditLogsPage /></ProtectedRoute>} />
       
-      {/* Default redirect */}
-      <Route path="/" element={<Navigate to="/user" replace />} />
-      <Route path="*" element={<Navigate to="/user" replace />} />
+      {/* Default redirect based on role */}
+      <Route path="/" element={<Navigate to={getDefaultRoute()} replace />} />
+      <Route path="*" element={<Navigate to={getDefaultRoute()} replace />} />
     </Routes>
   );
 }
