@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://lokal-api.reshigan-085.workers.dev';
 
 interface ApiResponse<T> {
   data?: T;
