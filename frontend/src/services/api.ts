@@ -904,8 +904,27 @@ class ApiService {
     }>(`/agent/customers/${customerId}`);
   }
 
-  // Agent Float Alerts
-  async getAgentAlerts() {
+    // User Analytics
+    async getAnalytics() {
+      return this.request<{
+        total_spent: number;
+        total_topups: number;
+        wifi_spent: number;
+        electricity_spent: number;
+        current_balance: number;
+        loyalty_points: number;
+        transaction_count: number;
+        monthly_breakdown: Array<{
+          month: string;
+          wifi: number;
+          electricity: number;
+          topups: number;
+        }>;
+      }>('/analytics');
+    }
+
+    // Agent Float Alerts
+    async getAgentAlerts() {
     return this.request<{
       alerts: Array<{
         id: string;

@@ -10,6 +10,7 @@ import ProfilePage from './pages/user/Profile';
 import TopupPage from './pages/user/Topup';
 import UserOnboarding from './pages/user/Onboarding';
 import VouchersPage from './pages/user/Vouchers';
+import AnalyticsPage from './pages/user/Analytics';
 import AgentDashboard from './pages/agent/Dashboard';
 import SellWiFiPage from './pages/agent/SellWiFi';
 import SellElectricityPage from './pages/agent/SellElectricity';
@@ -79,9 +80,10 @@ function AppRoutes() {
       <Route path="/user/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
       <Route path="/user/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       <Route path="/user/topup" element={<ProtectedRoute><TopupPage /></ProtectedRoute>} />
-      <Route path="/user/vouchers" element={<ProtectedRoute><VouchersPage /></ProtectedRoute>} />
+            <Route path="/user/vouchers" element={<ProtectedRoute><VouchersPage /></ProtectedRoute>} />
+            <Route path="/user/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
       
-      {/* Agent Routes */}
+            {/* Agent Routes */}
       <Route path="/agent" element={<ProtectedRoute><AgentDashboard /></ProtectedRoute>} />
       <Route path="/agent/onboarding" element={<ProtectedRoute><AgentOnboarding /></ProtectedRoute>} />
       <Route path="/agent/sell/wifi" element={<ProtectedRoute><SellWiFiPage /></ProtectedRoute>} />

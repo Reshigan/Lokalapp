@@ -301,7 +301,7 @@ export default function UserDashboard() {
               { icon: Home, label: 'Dashboard', path: '/user', active: true },
               { icon: History, label: 'History', path: '/user/history', active: false },
               { icon: Wallet, label: 'Payments', path: '/user/topup', active: false },
-              { icon: BarChart3, label: 'Analytics', path: '/user/profile', active: false },
+              { icon: BarChart3, label: 'Analytics', path: '/user/analytics', active: false },
             ].map((item) => (
               <motion.button
                 key={item.label}
