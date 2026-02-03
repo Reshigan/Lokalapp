@@ -1,0 +1,12 @@
+name = "lokal-api"
+main = "src/worker.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+ENVIRONMENT = "production"
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "lokal-db"
+database_id = "3322e9a8-3836-4c66-8098-aa5e31a9ab5c"
