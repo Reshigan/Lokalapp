@@ -24,28 +24,52 @@ export async function dashboardStats(_request, env) {
 
 export async function listUsers(request, env) {
   const url = new URL(request.url);
-  const q = url.searchParams.get('q');
-  let sql = 'SELECT id, phone_number, first_name, last_name, email, kyc_status, status, is_admin, created_at FROM users WHERE 1=1';
+  const q = url.searchParams.get('search') || url.searchParams.get('q');
+  const kyc = url.searchParams.get('kyc_status');
+  const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+  const pageSize = Math.min(100, parseInt(url.searchParams.get('page_size') || '20', 10));
+  const offset = (page - 1) * pageSize;
+
+  const where = ['1=1'];
   const binds = [];
   if (q) {
-    sql += ' AND (phone_number LIKE ? OR first_name LIKE ? OR last_name LIKE ? OR email LIKE ?)';
+    where.push('(phone_number LIKE ? OR first_name LIKE ? OR last_name LIKE ? OR email LIKE ?)');
     const like = `%${q}%`;
     binds.push(like, like, like, like);
   }
-  sql += ' ORDER BY created_at DESC LIMIT 200';
-  const rows = await all(env, sql, ...binds);
-  return json(rows);
+  if (kyc) { where.push('kyc_status = ?'); binds.push(kyc); }
+
+  const totalRow = await one(env, `SELECT COUNT(*) AS c FROM users WHERE ${where.join(' AND ')}`, ...binds);
+  const rows = await all(env,
+    `SELECT id, phone_number, first_name, last_name, email, kyc_status, status, is_admin, loyalty_points, created_at
+     FROM users WHERE ${where.join(' AND ')}
+     ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    ...binds, pageSize, offset);
+
+  return json({ users: rows, total: Number(totalRow?.c || 0), page });
 }
 
 export async function auditLogs(_request, env) {
-  // user_id is the column name used in remote D1; works for the new schema too.
   const rows = await all(
     env,
     `SELECT al.*, u.phone_number, u.first_name, u.last_name
      FROM audit_logs al LEFT JOIN users u ON u.id = al.user_id
      ORDER BY al.created_at DESC LIMIT 200`,
   );
-  return json(rows);
+  return json({
+    audit_logs: rows.map((r) => ({
+      id: r.id,
+      user_id: r.user_id,
+      user_phone: r.phone_number || null,
+      user_name: [r.first_name, r.last_name].filter(Boolean).join(' ') || null,
+      action: r.action,
+      entity_type: r.entity_type,
+      entity_id: r.entity_id,
+      old_value: r.old_value,
+      new_value: r.new_value,
+      created_at: r.created_at,
+    })),
+  });
 }
 
 // ---------- User detail + actions ----------
@@ -108,14 +132,26 @@ export async function adjustUserWallet(request, env, _user, _deps, params) {
 export async function listAgents(request, env) {
   const url = new URL(request.url);
   const tier = url.searchParams.get('tier');
-  const status = url.searchParams.get('status');
-  let sql = `SELECT a.*, u.phone_number, u.first_name, u.last_name FROM agents a JOIN users u ON u.id = a.user_id WHERE 1=1`;
+  const status = url.searchParams.get('agent_status') || url.searchParams.get('status');
+  const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+  const pageSize = Math.min(100, parseInt(url.searchParams.get('page_size') || '20', 10));
+  const offset = (page - 1) * pageSize;
+
+  const where = ['1=1'];
   const binds = [];
-  if (tier) { sql += ' AND a.tier = ?'; binds.push(tier); }
-  if (status) { sql += ' AND a.status = ?'; binds.push(status); }
-  sql += ' ORDER BY a.created_at DESC LIMIT 200';
-  const rows = await all(env, sql, ...binds);
-  return json(rows);
+  if (tier) { where.push('a.tier = ?'); binds.push(tier); }
+  if (status) { where.push('a.status = ?'); binds.push(status); }
+
+  const totalRow = await one(env, `SELECT COUNT(*) AS c FROM agents a WHERE ${where.join(' AND ')}`, ...binds);
+  const rows = await all(env,
+    `SELECT a.*, u.phone_number AS user_phone,
+            COALESCE(u.first_name || ' ' || u.last_name, u.phone_number) AS user_name
+     FROM agents a JOIN users u ON u.id = a.user_id
+     WHERE ${where.join(' AND ')}
+     ORDER BY a.created_at DESC LIMIT ? OFFSET ?`,
+    ...binds, pageSize, offset);
+
+  return json({ agents: rows, total: Number(totalRow?.c || 0), page });
 }
 
 export async function updateAgentTier(request, env, _user, _deps, params) {
@@ -195,36 +231,43 @@ export async function createAdminElectricity(request, env) {
 
 // ---------- Reports / Analytics ----------
 
-export async function revenueReport(_request, env) {
-  const total = await one(env, "SELECT COALESCE(SUM(total_amount), 0) AS billed, COALESCE(SUM(amount_paid), 0) AS paid FROM electricity_invoices");
-  const wifi = await one(env, "SELECT COALESCE(SUM(amount), 0) AS total FROM transactions WHERE type = 'PURCHASE' AND description LIKE 'WiFi%'");
-  const elec = await one(env, "SELECT COALESCE(SUM(amount), 0) AS total FROM transactions WHERE type = 'PURCHASE' AND description LIKE 'Electricity%'");
-  const monthly = await all(
-    env,
-    `SELECT strftime('%Y-%m', issue_date) AS month,
-       COALESCE(SUM(total_amount), 0) AS billed,
-       COALESCE(SUM(amount_paid), 0) AS paid
-     FROM electricity_invoices
-     WHERE issue_date >= date('now', '-12 months')
-     GROUP BY month ORDER BY month`,
-  );
+export async function revenueReport(request, env) {
+  const url = new URL(request.url);
+  const days = Math.max(1, Math.min(365, parseInt(url.searchParams.get('days') || '30', 10)));
+  const since = `datetime('now', '-${days} days')`;
+
+  const wifi = await one(env, `SELECT COALESCE(SUM(ABS(amount)), 0) AS total FROM transactions WHERE type = 'PURCHASE' AND description LIKE 'WiFi%' AND created_at >= ${since}`);
+  const elec = await one(env, `SELECT COALESCE(SUM(ABS(amount)), 0) AS total FROM transactions WHERE type = 'PURCHASE' AND description LIKE 'Electricity%' AND created_at >= ${since}`);
+  const other = await one(env, `SELECT COALESCE(SUM(ABS(amount)), 0) AS total FROM transactions WHERE type = 'PURCHASE' AND description NOT LIKE 'WiFi%' AND description NOT LIKE 'Electricity%' AND created_at >= ${since}`);
+
+  const daily = await all(env, `
+    SELECT date(created_at) AS date, COALESCE(SUM(ABS(amount)),0) AS amount
+    FROM transactions
+    WHERE type = 'PURCHASE' AND created_at >= ${since}
+    GROUP BY date(created_at) ORDER BY date(created_at)`);
+
+  const wifiV = Number(wifi.total);
+  const elecV = Number(elec.total);
+  const otherV = Number(other.total);
+
   return json({
-    invoices: { total_billed: Number(total.billed), total_paid: Number(total.paid) },
-    wifi_revenue: Math.abs(Number(wifi.total)),
-    electricity_revenue: Math.abs(Number(elec.total)),
-    monthly_breakdown: monthly,
+    period_days: days,
+    daily_revenue: daily.map((d) => ({ date: d.date, amount: Number(d.amount) })),
+    by_product: { wifi: wifiV, electricity: elecV, other: otherV },
+    total: wifiV + elecV + otherV,
   });
 }
 
-export async function agentReport(_request, env) {
-  const top = await all(
-    env,
-    `SELECT a.id, a.agent_code, a.business_name, a.tier, a.total_sales, a.monthly_sales, a.commission_balance,
-       u.phone_number
+export async function agentReport(request, env) {
+  const url = new URL(request.url);
+  const days = Math.max(1, Math.min(365, parseInt(url.searchParams.get('days') || '30', 10)));
+  const top = await all(env,
+    `SELECT a.id, a.agent_code, a.business_name, a.tier,
+            a.total_sales, a.monthly_sales, a.commission_balance,
+            u.phone_number
      FROM agents a JOIN users u ON u.id = a.user_id
-     ORDER BY a.total_sales DESC LIMIT 50`,
-  );
-  return json({ top_agents: top });
+     ORDER BY a.total_sales DESC LIMIT 50`);
+  return json({ period_days: days, top_agents: top });
 }
 
 export async function adminAnalytics(_request, env) {

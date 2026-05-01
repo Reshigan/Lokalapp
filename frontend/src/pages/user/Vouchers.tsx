@@ -1,32 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { PageHeader } from '@/components/PageHeader';
+import { EmptyState, IconBadge } from '@/components/Stat';
 import api from '@/services/api';
-import { 
-  ArrowLeft, 
-  Wifi, 
-  Loader2,
-  Clock,
-  CheckCircle,
-  XCircle,
-  Share2,
-  Copy
-} from 'lucide-react';
+import { Wifi, Copy, Check, Share2 } from 'lucide-react';
 
 interface Voucher {
   id: string;
-  package_name: string;
+  package_name: string | null;
   voucher_code: string;
   status: string;
   data_limit_mb: number;
-  data_used_mb: number;
   data_remaining_mb: number;
-  validity_hours: number;
-  activated_at: string | null;
   expires_at: string | null;
-  created_at: string;
 }
+
+const fmtMb = (mb: number) => mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`;
 
 export default function VouchersPage() {
   const navigate = useNavigate();
@@ -35,207 +27,68 @@ export default function VouchersPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
-    loadVouchers();
+    api.getWiFiVouchers().then((r) => {
+      if (r.data?.vouchers) setVouchers(r.data.vouchers as any);
+      setLoading(false);
+    });
   }, []);
 
-  const loadVouchers = async () => {
-    setLoading(true);
-    const { data } = await api.getWiFiVouchers();
-    if (data) {
-      setVouchers(data.vouchers);
-    }
-    setLoading(false);
+  const copy = async (v: Voucher) => {
+    await navigator.clipboard.writeText(v.voucher_code);
+    setCopiedId(v.id);
+    setTimeout(() => setCopiedId(null), 1500);
   };
 
-  const handleCopy = async (code: string, id: string) => {
-    await navigator.clipboard.writeText(code);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const handleShare = async (voucher: Voucher) => {
-    const shareData = {
-      title: 'WiFi Voucher',
-      text: `WiFi Voucher Code: ${voucher.voucher_code}\nPackage: ${voucher.package_name}\nData: ${voucher.data_limit_mb}MB`,
-    };
-    
+  const share = async (v: Voucher) => {
     if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch (err) {
-        console.log('Share cancelled');
-      }
-    } else {
-      handleCopy(voucher.voucher_code, voucher.id);
-    }
+      try { await navigator.share({ title: 'Lokal WiFi voucher', text: `Voucher: ${v.voucher_code}` }); } catch { /* cancelled */ }
+    } else { copy(v); }
   };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'ACTIVE':
-        return <CheckCircle className="w-5 h-5 text-green-500" />;
-      case 'EXPIRED':
-        return <XCircle className="w-5 h-5 text-red-500" />;
-      case 'USED':
-        return <XCircle className="w-5 h-5 text-gray-500" />;
-      default:
-        return <Clock className="w-5 h-5 text-amber-500" />;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ACTIVE':
-        return 'bg-green-100 text-green-700';
-      case 'EXPIRED':
-        return 'bg-red-100 text-red-700';
-      case 'USED':
-        return 'bg-gray-100 text-gray-700';
-      default:
-        return 'bg-amber-100 text-amber-700';
-    }
-  };
-
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return 'N/A';
-    return new Date(dateStr).toLocaleDateString('en-ZA', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-teal-500" />
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-20">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-teal-500 to-teal-600 text-white p-6 pb-8 rounded-b-[30px]">
-        <div className="flex items-center gap-4 mb-4">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-white hover:bg-white/20"
-            onClick={() => navigate(-1)}
-          >
-            <ArrowLeft className="w-6 h-6" />
-          </Button>
-          <h1 className="text-xl font-bold">My Vouchers</h1>
-        </div>
-        <p className="text-teal-100 text-sm">View and manage your WiFi vouchers</p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader title="My vouchers" description="Active and unused WiFi passes." back="/user" />
 
-      {/* Vouchers List */}
-      <div className="px-4 -mt-4 space-y-3">
-        {vouchers.length === 0 ? (
-          <Card className="bg-white border-0 shadow-lg rounded-2xl">
-            <CardContent className="p-8 text-center">
-              <Wifi className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No vouchers yet</p>
-              <Button 
-                className="mt-4 bg-teal-500 hover:bg-teal-600 rounded-xl"
-                onClick={() => navigate('/user/wifi')}
-              >
-                Buy WiFi
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          vouchers.map((voucher) => (
-            <Card key={voucher.id} className="bg-white border-0 shadow-lg rounded-2xl overflow-hidden">
-              <CardContent className="p-0">
-                <div className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-teal-100 rounded-xl flex items-center justify-center">
-                        <Wifi className="w-5 h-5 text-teal-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{voucher.package_name}</h3>
-                        <p className="text-sm text-gray-500">{voucher.data_limit_mb}MB</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {getStatusIcon(voucher.status)}
-                      <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(voucher.status)}`}>
-                        {voucher.status}
-                      </span>
-                    </div>
+      {loading ? (
+        <div className="text-center py-12 text-ink-muted">Loading…</div>
+      ) : vouchers.length === 0 ? (
+        <EmptyState
+          icon={Wifi}
+          title="No vouchers yet"
+          description="Buy a WiFi pack to get started."
+          action={<Button onClick={() => navigate('/user/wifi')}>Buy WiFi</Button>}
+        />
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {vouchers.map((v) => (
+            <Card key={v.id}>
+              <CardContent className="p-5 flex items-start gap-3">
+                <IconBadge icon={Wifi} tone={v.status === 'ACTIVE' ? 'accent' : 'neutral'} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold truncate">{v.package_name || 'Voucher'}</p>
+                    <Badge variant={v.status === 'ACTIVE' ? 'accent' : v.status === 'UNUSED' ? 'secondary' : 'destructive'}>{v.status}</Badge>
                   </div>
-
-                  {/* Voucher Code */}
-                  <div className="bg-gray-50 rounded-xl p-3 mb-3">
-                    <p className="text-xs text-gray-500 mb-1">Voucher Code</p>
-                    <div className="flex items-center justify-between">
-                      <code className="text-lg font-mono font-bold text-teal-600">{voucher.voucher_code}</code>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-gray-500 hover:text-teal-600"
-                          onClick={() => handleCopy(voucher.voucher_code, voucher.id)}
-                        >
-                          {copiedId === voucher.id ? (
-                            <CheckCircle className="w-4 h-4 text-green-500" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-gray-500 hover:text-teal-600"
-                          onClick={() => handleShare(voucher)}
-                        >
-                          <Share2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Usage Progress */}
-                  {voucher.status === 'ACTIVE' && (
-                    <div className="mb-3">
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-gray-500">Data Used</span>
-                        <span className="text-gray-700">{voucher.data_used_mb}MB / {voucher.data_limit_mb}MB</span>
-                      </div>
-                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-teal-500 rounded-full transition-all"
-                          style={{ width: `${(voucher.data_used_mb / voucher.data_limit_mb) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Dates */}
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-gray-500">Created</p>
-                      <p className="text-gray-700">{formatDate(voucher.created_at)}</p>
-                    </div>
-                    {voucher.expires_at && (
-                      <div>
-                        <p className="text-gray-500">Expires</p>
-                        <p className="text-gray-700">{formatDate(voucher.expires_at)}</p>
-                      </div>
-                    )}
+                  <code className="text-base font-mono bg-surface-subtle px-2 py-1 rounded-md inline-block mt-2">{v.voucher_code}</code>
+                  <p className="text-xs text-ink-muted mt-2">
+                    {fmtMb(v.data_remaining_mb || v.data_limit_mb)} remaining
+                    {v.expires_at && ` · expires ${new Date(v.expires_at).toLocaleDateString()}`}
+                  </p>
+                  <div className="flex gap-2 mt-3">
+                    <Button size="sm" variant="outline" onClick={() => copy(v)}>
+                      {copiedId === v.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      {copiedId === v.id ? 'Copied' : 'Copy'}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => share(v)}>
+                      <Share2 className="w-4 h-4" /> Share
+                    </Button>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

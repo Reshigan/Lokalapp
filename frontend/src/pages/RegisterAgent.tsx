@@ -1,277 +1,198 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
+import { Logo } from '@/components/Logo';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
-import { 
-  ArrowRight, 
-  Loader2, 
-  Building2, 
-  ArrowLeft,
-  CheckCircle
-} from 'lucide-react';
+import { Loader2, ArrowRight, Check, Store } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+const TYPES = [
+  { id: 'SPAZA',     label: 'Spaza shop' },
+  { id: 'TRADER',    label: 'Trader' },
+  { id: 'COMMUNITY', label: 'Community' },
+  { id: 'OTHER',     label: 'Other' },
+];
+
+const normalizePhone = (v: string) => {
+  const d = v.replace(/\D/g, '');
+  if (d.startsWith('27')) return '+' + d;
+  if (d.startsWith('0')) return '+27' + d.slice(1);
+  return d ? '+27' + d : '';
+};
 
 export default function RegisterAgent() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [step, setStep] = useState<'phone' | 'otp' | 'details' | 'success'>('phone');
+  const [step, setStep] = useState<'phone' | 'otp' | 'details' | 'done'>('phone');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
+  const [debugOtp, setDebugOtp] = useState('');
   const [businessName, setBusinessName] = useState('');
-  const [businessType, setBusinessType] = useState('');
+  const [businessType, setBusinessType] = useState('SPAZA');
   const [address, setAddress] = useState('');
+  const [initialFloat, setInitialFloat] = useState('500');
+  const [agentCode, setAgentCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [debugOtp, setDebugOtp] = useState('');
-  const [agentCode, setAgentCode] = useState('');
 
-  const formatPhone = (value: string) => {
-    const digits = value.replace(/\D/g, '');
-    if (digits.startsWith('27')) {
-      return '+' + digits;
-    } else if (digits.startsWith('0')) {
-      return '+27' + digits.slice(1);
-    }
-    return '+27' + digits;
-  };
-
-  const handleRequestOTP = async () => {
-    setLoading(true);
-    setError('');
-    const formattedPhone = formatPhone(phone);
-    
-    const { data, error: apiError } = await api.requestOTP(formattedPhone);
+  const requestOtp = async () => {
+    setError(''); setLoading(true);
+    const p = normalizePhone(phone);
+    const r = await api.requestOTP(p);
     setLoading(false);
-    
-    if (apiError) {
-      setError(apiError);
-      return;
-    }
-    
-    if (data?.debug_otp) {
-      setDebugOtp(data.debug_otp);
-    }
-    setPhone(formattedPhone);
+    if (r.error) return setError(r.error);
+    if (r.data?.debug_otp) setDebugOtp(r.data.debug_otp);
+    setPhone(p);
     setStep('otp');
   };
 
-  const handleVerifyOTP = async () => {
-    setLoading(true);
-    setError('');
-    
-    const { data, error: apiError } = await api.verifyOTP(phone, otp);
+  const verifyOtp = async () => {
+    setError(''); setLoading(true);
+    const r = await api.verifyOTP(phone, otp);
     setLoading(false);
-    
-    if (apiError) {
-      setError(apiError);
-      return;
-    }
-    
-    if (data) {
-      await login(data.access_token, data.refresh_token);
+    if (r.error) return setError(r.error);
+    if (r.data) {
+      await login(r.data.access_token, r.data.refresh_token);
       setStep('details');
     }
   };
 
-  const handleRegisterAgent = async () => {
-    setLoading(true);
-    setError('');
-    
-    const { data, error: apiError } = await api.registerAgent({
+  const submit = async () => {
+    setError(''); setLoading(true);
+    const r = await api.registerAgent({
       business_name: businessName,
       business_type: businessType,
       address: address || undefined,
-      initial_float: 0,
+      initial_float: parseFloat(initialFloat) || 0,
     });
     setLoading(false);
-    
-    if (apiError) {
-      setError(apiError);
-      return;
-    }
-    
-    if (data) {
-      setAgentCode(data.agent_code);
-      setStep('success');
+    if (r.error) return setError(r.error);
+    if (r.data) {
+      setAgentCode(r.data.agent_code);
+      setStep('done');
     }
   };
 
-  const businessTypes = [
-    'Spaza Shop',
-    'Internet Cafe',
-    'General Store',
-    'Mobile Shop',
-    'Other'
-  ];
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-500 to-purple-600 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-white rounded-3xl shadow-xl">
-        <CardHeader className="text-center">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
-            <Building2 className="w-8 h-8 text-white" />
-          </div>
-          <CardTitle className="text-2xl font-bold text-gray-900">
-            Become an Agent
-          </CardTitle>
-          <CardDescription>
-            {step === 'phone' && 'Enter your phone number to get started'}
-            {step === 'otp' && 'Enter the OTP sent to your phone'}
-            {step === 'details' && 'Tell us about your business'}
-            {step === 'success' && 'Registration successful!'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
-              {error}
+    <div className="min-h-screen flex items-center justify-center px-4 py-10 bg-surface-bg">
+      <div className="w-full max-w-md">
+        <div className="flex items-center justify-center mb-6">
+          <Logo size={36} showWordmark />
+        </div>
+
+        <Card>
+          <CardContent className="p-6 md:p-7 space-y-5">
+            <div className="flex justify-between text-xs">
+              {(['phone', 'otp', 'details', 'done'] as const).map((s, i) => (
+                <span
+                  key={s}
+                  className={cn(
+                    'flex-1 h-1 rounded-full mx-0.5',
+                    ['phone', 'otp', 'details', 'done'].indexOf(step) >= i ? 'bg-brand-700' : 'bg-surface-border',
+                  )}
+                />
+              ))}
             </div>
-          )}
-          
-          {step === 'phone' && (
-            <>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Phone Number</label>
-                <Input
-                  type="tel"
-                  placeholder="081 234 5678"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="text-lg"
-                />
-                <p className="text-xs text-gray-500">South African mobile number</p>
-              </div>
-              <Button 
-                className="w-full bg-indigo-600 hover:bg-indigo-700 rounded-xl" 
-                onClick={handleRequestOTP}
-                disabled={loading || phone.length < 9}
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Continue
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-              <Link to="/login">
-                <Button variant="ghost" className="w-full">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Login
-                </Button>
-              </Link>
-            </>
-          )}
-          
-          {step === 'otp' && (
-            <>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">OTP Code</label>
-                <Input
-                  type="text"
-                  placeholder="123456"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className="text-lg text-center tracking-widest"
-                  maxLength={6}
-                />
-                {debugOtp && (
-                  <p className="text-xs text-indigo-500 text-center">
-                    Demo OTP: {debugOtp}
-                  </p>
-                )}
-              </div>
-              <Button 
-                className="w-full bg-indigo-600 hover:bg-indigo-700 rounded-xl" 
-                onClick={handleVerifyOTP}
-                disabled={loading || otp.length !== 6}
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Verify OTP
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full"
-                onClick={() => {
-                  setStep('phone');
-                  setOtp('');
-                  setDebugOtp('');
-                }}
-              >
-                Back to phone number
-              </Button>
-            </>
-          )}
-          
-          {step === 'details' && (
-            <>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Business Name</label>
-                <Input
-                  type="text"
-                  placeholder="My Shop"
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Business Type</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {businessTypes.map((type) => (
-                    <Button
-                      key={type}
-                      variant={businessType === type ? 'default' : 'outline'}
-                      size="sm"
-                      className={businessType === type ? 'bg-indigo-600 hover:bg-indigo-700' : 'rounded-xl'}
-                      onClick={() => setBusinessType(type)}
-                    >
-                      {type}
-                    </Button>
-                  ))}
+
+            {step === 'phone' && (
+              <>
+                <div>
+                  <h2 className="text-2xl font-semibold tracking-tight">Become an agent</h2>
+                  <p className="text-sm text-ink-muted mt-1">Earn commission selling Lokal services in your community.</p>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Business Address (Optional)</label>
+                <div>
+                  <label className="field-label">Phone number</label>
+                  <Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+27 81 234 5678" />
+                </div>
+                {error && <p className="text-sm text-red-600">{error}</p>}
+                <Button className="w-full" disabled={loading || phone.length < 9} onClick={requestOtp}>
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Continue <ArrowRight className="w-4 h-4" /></>}
+                </Button>
+              </>
+            )}
+
+            {step === 'otp' && (
+              <>
+                <div>
+                  <h2 className="text-2xl font-semibold tracking-tight">Enter code</h2>
+                  <p className="text-sm text-ink-muted mt-1">We sent a 6-digit code to {phone}.</p>
+                </div>
                 <Input
-                  type="text"
-                  placeholder="123 Main Street, City"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
+                  inputMode="numeric"
+                  maxLength={6}
+                  className="text-center text-2xl font-mono tracking-[0.4em] h-14"
+                  placeholder="000000"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                 />
+                {debugOtp && <p className="text-xs text-ink-muted text-center">Dev OTP: <code>{debugOtp}</code></p>}
+                {error && <p className="text-sm text-red-600">{error}</p>}
+                <Button className="w-full" disabled={loading || otp.length !== 6} onClick={verifyOtp}>
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify'}
+                </Button>
+                <Button variant="ghost" className="w-full" onClick={() => setStep('phone')}>Use a different number</Button>
+              </>
+            )}
+
+            {step === 'details' && (
+              <>
+                <div>
+                  <h2 className="text-2xl font-semibold tracking-tight">Business details</h2>
+                  <p className="text-sm text-ink-muted mt-1">Tell us about your operation.</p>
+                </div>
+                <div>
+                  <label className="field-label">Business name</label>
+                  <Input value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
+                </div>
+                <div>
+                  <label className="field-label">Type</label>
+                  <select className="field" value={businessType} onChange={(e) => setBusinessType(e.target.value)}>
+                    {TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="field-label">Address</label>
+                  <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="optional" />
+                </div>
+                <div>
+                  <label className="field-label">Initial float (R)</label>
+                  <Input type="number" value={initialFloat} onChange={(e) => setInitialFloat(e.target.value)} />
+                  <p className="text-xs text-ink-muted mt-1">Working capital for customer transactions.</p>
+                </div>
+                {error && <p className="text-sm text-red-600">{error}</p>}
+                <Button className="w-full" disabled={loading || !businessName} onClick={submit}>
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Store className="w-4 h-4" />}
+                  Register agent
+                </Button>
+              </>
+            )}
+
+            {step === 'done' && (
+              <div className="text-center space-y-4 py-4">
+                <div className="mx-auto w-12 h-12 rounded-2xl bg-success-soft text-emerald-700 grid place-items-center">
+                  <Check className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-semibold tracking-tight">You're registered</h2>
+                  <p className="text-sm text-ink-muted mt-1">Agent code <code className="font-mono">{agentCode}</code></p>
+                </div>
+                <Button onClick={() => navigate('/agent')} className="w-full">
+                  Open agent dashboard <ArrowRight className="w-4 h-4" />
+                </Button>
               </div>
-              <Button 
-                className="w-full bg-indigo-600 hover:bg-indigo-700 rounded-xl" 
-                onClick={handleRegisterAgent}
-                disabled={loading || !businessName || !businessType}
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Register as Agent
-              </Button>
-            </>
-          )}
-          
-          {step === 'success' && (
-            <div className="text-center space-y-4">
-              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
-                <CheckCircle className="w-8 h-8 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-lg font-semibold text-gray-900">Welcome, Agent!</p>
-                <p className="text-sm text-gray-500 mt-1">Your agent code is:</p>
-                <p className="text-2xl font-bold text-indigo-600 mt-2">{agentCode}</p>
-              </div>
-              <p className="text-sm text-gray-500">
-                You can now start selling WiFi and electricity to customers.
-              </p>
-              <Button 
-                className="w-full bg-indigo-600 hover:bg-indigo-700 rounded-xl" 
-                onClick={() => navigate('/agent')}
-              >
-                Go to Agent Dashboard
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="text-center mt-6">
+          <button onClick={() => navigate('/login')} className="text-xs text-ink-muted hover:text-ink">
+            ← Back to sign in
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

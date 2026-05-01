@@ -430,7 +430,7 @@ class ApiService {
       first_name: string | null;
       last_name: string | null;
       kyc_status: string;
-    }>>(`/agent/customers?${params.toString()}`);
+    }>>(`/agent/customers/search?${params.toString()}`);
   }
 
   async registerCustomer(phone_number: string, first_name: string, last_name?: string) {
