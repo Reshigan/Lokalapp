@@ -1,25 +1,11 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useEffect, useState } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { PageHeader } from '@/components/PageHeader';
+import { StatCard } from '@/components/Stat';
 import api from '@/services/api';
-import { 
-  ArrowLeft, 
-  Loader2,
-  TrendingUp,
-  Users,
-  Award
-} from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-
-interface AgentPerformance {
-  agent_code: string;
-  business_name: string;
-  tier: string;
-  total_sales: number;
-  monthly_sales: number;
-  commission_balance: number;
-}
+import { TrendingUp, Wifi, Zap } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface RevenueData {
   period_days: number;
@@ -28,195 +14,113 @@ interface RevenueData {
   total: number;
 }
 
+interface AgentRow {
+  agent_code: string;
+  business_name: string;
+  tier: string;
+  total_sales: number;
+  monthly_sales: number;
+  commission_balance: number;
+}
+
+const fmt = (n: number) => new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', maximumFractionDigits: 0 }).format(n);
+
 export default function AdminReportsPage() {
-  const navigate = useNavigate();
   const [revenue, setRevenue] = useState<RevenueData | null>(null);
-  const [topAgents, setTopAgents] = useState<AgentPerformance[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [topAgents, setTopAgents] = useState<AgentRow[]>([]);
   const [period, setPeriod] = useState(30);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadData();
+    setLoading(true);
+    Promise.all([api.getRevenueReport(period), api.getAgentPerformanceReport(period)]).then(([r, a]) => {
+      if (r.data) setRevenue(r.data);
+      if (a.data) setTopAgents(a.data.top_agents);
+      setLoading(false);
+    });
   }, [period]);
 
-  const loadData = async () => {
-    setLoading(true);
-    const [revenueRes, agentsRes] = await Promise.all([
-      api.getRevenueReport(period),
-      api.getAgentPerformanceReport(period),
-    ]);
-    if (revenueRes.data) setRevenue(revenueRes.data);
-    if (agentsRes.data) setTopAgents(agentsRes.data.top_agents);
-    setLoading(false);
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
-      style: 'currency',
-      currency: 'ZAR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const getTierColor = (tier: string) => {
-    switch (tier) {
-      case 'GOLD': return 'text-yellow-600';
-      case 'SILVER': return 'text-gray-500';
-      case 'PLATINUM': return 'text-purple-600';
-      default: return 'text-orange-600';
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
-      </div>
-    );
-  }
+  const max = Math.max(1, ...(revenue?.daily_revenue.map((d) => d.amount) || [0]));
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-6">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-rose-500 to-pink-600 text-white p-6 rounded-b-[30px]">
-        <div className="flex items-center gap-3 mb-4">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-white hover:bg-white/20"
-            onClick={() => navigate('/admin')}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <h1 className="text-xl font-bold">Reports & Analytics</h1>
-        </div>
-        
-        {/* Period Selector */}
-        <div className="flex gap-2">
-          {[7, 30, 90].map((days) => (
-            <Button
-              key={days}
-              variant={period === days ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setPeriod(days)}
-              className={period === days ? 'bg-white text-rose-600 shadow-lg' : 'text-white hover:bg-white/20'}
-            >
-              {days} days
-            </Button>
-          ))}
-        </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Reports"
+        description={`Last ${period} days`}
+        back="/admin"
+        actions={
+          <div className="flex items-center gap-1 p-1 bg-surface-subtle rounded-xl">
+            {[7, 30, 90].map((d) => (
+              <button
+                key={d}
+                onClick={() => setPeriod(d)}
+                className={cn(
+                  'px-3 py-1 rounded-lg text-xs font-medium',
+                  period === d ? 'bg-white text-ink shadow-soft' : 'text-ink-soft hover:text-ink',
+                )}
+              >
+                {d}d
+              </button>
+            ))}
+          </div>
+        }
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <StatCard tone="brand"   icon={TrendingUp} label="Total revenue" value={revenue ? fmt(revenue.total) : '—'} />
+        <StatCard tone="accent"  icon={Wifi}       label="WiFi"          value={revenue ? fmt(revenue.by_product.wifi) : '—'} />
+        <StatCard tone="warning" icon={Zap}        label="Electricity"   value={revenue ? fmt(revenue.by_product.electricity) : '—'} />
       </div>
 
-      <div className="px-4 mt-4 space-y-4">
-        {/* Revenue Summary */}
-        <Card className="bg-white border-0 shadow-lg rounded-2xl">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2 text-gray-900">
-              <TrendingUp className="w-5 h-5" />
-              Revenue Summary
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center mb-4">
-              <p className="text-sm text-gray-500">Total Revenue ({period} days)</p>
-              <p className="text-3xl font-bold text-gray-900">
-                {formatCurrency(revenue?.total || 0)}
-              </p>
-            </div>
-            
-            {revenue && revenue.daily_revenue.length > 0 && (
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={revenue.daily_revenue}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis 
-                      dataKey="date" 
-                      tick={{ fontSize: 10, fill: '#6b7280' }}
-                      tickFormatter={(value) => new Date(value).toLocaleDateString('en-ZA', { day: 'numeric' })}
-                    />
-                    <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} />
-                    <Tooltip 
-                      formatter={(value: number) => formatCurrency(value)}
-                      labelFormatter={(label) => new Date(label).toLocaleDateString('en-ZA')}
-                      contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-                      labelStyle={{ color: '#374151' }}
-                    />
-                    <Bar dataKey="amount" fill="#F43F5E" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-
-            <div className="grid grid-cols-3 gap-2 mt-4">
-              <div className="text-center p-2 bg-teal-100 rounded-xl">
-                <p className="text-xs text-gray-500">WiFi</p>
-                <p className="font-semibold text-teal-600">
-                  {formatCurrency(revenue?.by_product.wifi || 0)}
-                </p>
-              </div>
-              <div className="text-center p-2 bg-amber-100 rounded-xl">
-                <p className="text-xs text-gray-500">Electricity</p>
-                <p className="font-semibold text-amber-500">
-                  {formatCurrency(revenue?.by_product.electricity || 0)}
-                </p>
-              </div>
-              <div className="text-center p-2 bg-gray-100 rounded-xl">
-                <p className="text-xs text-gray-500">Other</p>
-                <p className="font-semibold text-gray-600">
-                  {formatCurrency(revenue?.by_product.other || 0)}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Top Agents */}
-        <Card className="bg-white border-0 shadow-lg rounded-2xl">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2 text-gray-900">
-              <Award className="w-5 h-5" />
-              Top Performing Agents
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {topAgents.length === 0 ? (
-              <div className="text-center py-4 text-gray-400">
-                <Users className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                <p>No agent data available</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {topAgents.slice(0, 10).map((agent, index) => (
-                  <div key={agent.agent_code} className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold ${
-                      index === 0 ? 'bg-amber-100 text-amber-600' :
-                      index === 1 ? 'bg-gray-200 text-gray-600' :
-                      index === 2 ? 'bg-orange-100 text-orange-600' :
-                      'bg-gray-100 text-gray-500'
-                    }`}>
-                      {index + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate text-gray-900">{agent.business_name}</p>
-                      <p className="text-xs text-gray-500">
-                        <span className={getTierColor(agent.tier)}>{agent.tier}</span>
-                        {' '}&middot;{' '}{agent.agent_code}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-gray-900">{formatCurrency(agent.total_sales)}</p>
-                      <p className="text-xs text-gray-500">
-                        This month: {formatCurrency(agent.monthly_sales)}
-                      </p>
-                    </div>
+      <Card>
+        <CardContent className="p-5">
+          <h3 className="section-title mb-4">Daily revenue</h3>
+          {loading ? (
+            <p className="text-sm text-ink-muted text-center py-6">Loading…</p>
+          ) : (revenue?.daily_revenue.length || 0) === 0 ? (
+            <p className="text-sm text-ink-muted text-center py-6">No revenue in this period.</p>
+          ) : (
+            <div className="space-y-2">
+              {revenue!.daily_revenue.map((d) => (
+                <div key={d.date} className="flex items-center gap-3">
+                  <span className="text-xs text-ink-muted w-20">{new Date(d.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}</span>
+                  <div className="flex-1 h-2 rounded-full bg-surface-subtle overflow-hidden">
+                    <span className="block h-full bg-brand-700" style={{ width: `${(d.amount / max) * 100}%` }} />
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                  <span className="text-xs font-medium w-20 text-right">{fmt(d.amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-5">
+          <h3 className="section-title mb-3">Top agents</h3>
+          {topAgents.length === 0 ? (
+            <p className="text-sm text-ink-muted text-center py-6">No agents yet.</p>
+          ) : (
+            <div className="divide-y divide-surface-border">
+              {topAgents.map((a) => (
+                <div key={a.agent_code} className="py-3 flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold truncate">{a.business_name}</p>
+                      <Badge>{a.tier}</Badge>
+                    </div>
+                    <p className="text-xs text-ink-muted">{a.agent_code}</p>
+                  </div>
+                  <div className="text-right text-sm">
+                    <p className="font-semibold">{fmt(a.total_sales)}</p>
+                    <p className="text-xs text-ink-muted">{fmt(a.monthly_sales)} this month</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

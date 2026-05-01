@@ -184,7 +184,13 @@ export async function registerCustomer(request, env, _user, deps) {
       body.notes || null, nowIso(),
     );
   }
-  return json({ user_id: user.id, phone_number: user.phone_number }, 201);
+  return json({
+    message: 'Customer registered',
+    customer_id: user.id,
+    user_id: user.id,
+    phone_number: user.phone_number,
+    referral_bonus_earned: 0,
+  }, 201);
 }
 
 export async function customerDetail(_request, env, _user, deps, params) {
@@ -277,13 +283,15 @@ export async function processTransaction(request, env, _user, deps) {
   );
 
   // Provision the product
+  let voucherCodeOut;
   if (body.product_type === 'WIFI') {
+    voucherCodeOut = 'V' + Math.random().toString(36).slice(2, 14).toUpperCase();
     await run(
       env,
       `INSERT INTO wifi_vouchers (id, user_id, package_id, voucher_code, status, data_limit_mb, validity_hours, created_at)
        VALUES (?, ?, ?, ?, 'UNUSED', ?, ?, ?)`,
       uuid(), customer.id, pkg.id,
-      'V' + Math.random().toString(36).slice(2, 14).toUpperCase(),
+      voucherCodeOut,
       pkg.data_limit_mb, pkg.validity_hours, nowIso(),
     );
   } else if (body.product_type === 'ELECTRICITY' && body.meter_id) {
@@ -302,6 +310,9 @@ export async function processTransaction(request, env, _user, deps) {
 
   return json({
     transaction_id: txId,
+    reference: 'TXN' + Math.random().toString(36).slice(2, 10).toUpperCase(),
+    voucher_code: voucherCodeOut,
+    amount: Number(pkg.price),
     commission_earned: commission,
     new_float_balance: Number(deps.agent.float_balance) - Number(pkg.price),
   }, 201);
@@ -315,10 +326,20 @@ export async function getCommissions(_request, env, _user, deps) {
     'SELECT * FROM agent_commissions WHERE agent_id = ? ORDER BY created_at DESC LIMIT 100',
     deps.agent.id,
   );
+  const totalEarned = ledger.reduce((s, r) => r.type === 'EARNED' ? s + Number(r.amount) : s, 0);
   return json({
     balance: Number(deps.agent.commission_balance || 0),
+    pending: 0,
+    total_earned: totalEarned,
     rate: COMMISSION_BY_TIER[deps.agent.tier] || 0.05,
     tier: deps.agent.tier,
+    transactions: ledger.map((r) => ({
+      id: r.id,
+      amount: 0,
+      commission: Number(r.amount),
+      description: r.description || r.type,
+      created_at: r.created_at,
+    })),
     history: ledger,
   });
 }
@@ -357,27 +378,55 @@ export async function withdrawCommission(request, env, _user, deps) {
 }
 
 export async function salesReport(_request, env, _currentUser, deps) {
-  const sums = await one(
-    env,
-    `SELECT
-       COUNT(*) AS num_invoices,
-       COALESCE(SUM(total_amount), 0) AS total_billed,
-       COALESCE(SUM(amount_paid), 0) AS total_paid
-     FROM electricity_invoices WHERE issued_by_agent_id = ?`,
-    deps.agent.id,
-  );
-  const collections = await one(
-    env,
-    `SELECT
-       COUNT(*) AS num_collections,
-       COALESCE(SUM(amount), 0) AS total_collected
-     FROM cash_collections WHERE agent_id = ? AND status = 'CONFIRMED'`,
-    deps.agent.id,
-  );
+  const today = await one(env, `
+    SELECT COUNT(*) AS c, COALESCE(SUM(ABS(amount)),0) AS s
+    FROM transactions
+    WHERE agent_id = ? AND type = 'PURCHASE'
+      AND date(created_at) = date('now')`, deps.agent.id);
+  const week = await one(env, `
+    SELECT COUNT(*) AS c, COALESCE(SUM(ABS(amount)),0) AS s
+    FROM transactions
+    WHERE agent_id = ? AND type = 'PURCHASE'
+      AND created_at >= datetime('now', '-7 days')`, deps.agent.id);
+  const month = await one(env, `
+    SELECT COUNT(*) AS c, COALESCE(SUM(ABS(amount)),0) AS s
+    FROM transactions
+    WHERE agent_id = ? AND type = 'PURCHASE'
+      AND created_at >= datetime('now', '-30 days')`, deps.agent.id);
+  const todayCommission = await one(env, `
+    SELECT COALESCE(SUM(amount),0) AS s FROM agent_commissions
+    WHERE agent_id = ? AND type = 'EARNED' AND date(created_at) = date('now')`, deps.agent.id);
+  const monthCommission = await one(env, `
+    SELECT COALESCE(SUM(amount),0) AS s FROM agent_commissions
+    WHERE agent_id = ? AND type = 'EARNED' AND created_at >= datetime('now', '-30 days')`, deps.agent.id);
+  const daily = await all(env, `
+    SELECT date(created_at) AS date,
+           COALESCE(SUM(ABS(amount)),0) AS sales,
+           COUNT(*) AS count
+    FROM transactions
+    WHERE agent_id = ? AND type = 'PURCHASE'
+      AND created_at >= datetime('now', '-30 days')
+    GROUP BY date(created_at) ORDER BY date(created_at)`, deps.agent.id);
+
+  const invoiceSums = await one(env, `
+    SELECT COUNT(*) AS num_invoices,
+           COALESCE(SUM(total_amount),0) AS total_billed,
+           COALESCE(SUM(amount_paid),0) AS total_paid
+    FROM electricity_invoices WHERE issued_by_agent_id = ?`, deps.agent.id);
+  const cashSums = await one(env, `
+    SELECT COUNT(*) AS num_collections,
+           COALESCE(SUM(amount),0) AS total_collected
+    FROM cash_collections WHERE agent_id = ? AND status = 'CONFIRMED'`, deps.agent.id);
+
   return json({
-    invoices: sums,
-    collections,
-    monthly_sales: Number(deps.agent.monthly_sales || 0),
+    today:   { sales: Number(today.s),  count: Number(today.c),  commission: Number(todayCommission.s) },
+    week:    { sales: Number(week.s),   count: Number(week.c) },
+    month:   { sales: Number(month.s),  count: Number(month.c),  commission: Number(monthCommission.s) },
+    daily_breakdown: daily.map((d) => ({ date: d.date, sales: Number(d.sales), count: Number(d.count) })),
     total_sales: Number(deps.agent.total_sales || 0),
+    commission_balance: Number(deps.agent.commission_balance || 0),
+    invoices: invoiceSums,
+    collections: cashSums,
+    monthly_sales: Number(deps.agent.monthly_sales || 0),
   });
 }

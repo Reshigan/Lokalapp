@@ -45,10 +45,27 @@ export async function updateMe(request, env, currentUser) {
   return json(publicUser(updated, roles, updated.pin_hash));
 }
 
+function tierFor(points) {
+  if (points >= 5000) return 'PLATINUM';
+  if (points >= 2000) return 'GOLD';
+  if (points >= 500)  return 'SILVER';
+  return 'BRONZE';
+}
+function nextTierAt(points) {
+  if (points < 500)  return 500;
+  if (points < 2000) return 2000;
+  if (points < 5000) return 5000;
+  return points;  // already platinum
+}
+
 export async function getLoyalty(_request, env, currentUser) {
   const referrals = await all(env, 'SELECT id FROM users WHERE referred_by = ?', currentUser.id);
+  const points = Number(currentUser.loyalty_points || 0);
   return json({
-    loyalty_points: currentUser.loyalty_points || 0,
+    points,
+    tier: tierFor(points),
+    next_tier_points: Math.max(0, nextTierAt(points) - points),
+    rewards_available: Math.floor(points / 100),
     referral_code: currentUser.referral_code,
     total_referrals: referrals.length,
   });

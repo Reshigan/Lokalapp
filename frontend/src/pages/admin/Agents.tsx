@@ -1,19 +1,15 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
+import { PageHeader } from '@/components/PageHeader';
+import { EmptyState, IconBadge } from '@/components/Stat';
 import api from '@/services/api';
-import { 
-  ArrowLeft, 
-  UserCheck,
-  Loader2,
-  TrendingUp,
-  Award
-} from 'lucide-react';
+import { ShieldCheck, Loader2, Award } from 'lucide-react';
 
-interface AgentData {
+interface AgentRow {
   id: string;
   agent_code: string;
   business_name: string;
@@ -26,255 +22,131 @@ interface AgentData {
   status: string;
   user_phone: string;
   user_name: string;
-  created_at: string;
 }
 
-const TIERS = ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM'];
+const TIERS = ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM'] as const;
+const fmt = (n: number) => new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', maximumFractionDigits: 0 }).format(n);
 
 export default function AdminAgentsPage() {
-  const navigate = useNavigate();
-  const [agents, setAgents] = useState<AgentData[]>([]);
+  const [agents, setAgents] = useState<AgentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [selectedAgent, setSelectedAgent] = useState<AgentData | null>(null);
-  const [updating, setUpdating] = useState(false);
+  const [selected, setSelected] = useState<AgentRow | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    loadAgents();
-  }, [page]);
-
-  const loadAgents = async () => {
+  const load = async () => {
     setLoading(true);
-    const { data } = await api.getAdminAgents(page);
-    if (data) {
-      setAgents(data.agents);
-      setTotal(data.total);
+    const r = await api.getAdminAgents(page);
+    if (r.data) {
+      setAgents(r.data.agents);
+      setTotal(r.data.total);
     }
     setLoading(false);
   };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [page]);
 
-  const handleUpdateTier = async (tier: string) => {
-    if (!selectedAgent) return;
-    setUpdating(true);
-    const { error } = await api.updateAgentTier(selectedAgent.id, tier);
-    setUpdating(false);
-    if (error) {
-      alert(error);
-      return;
-    }
-    setSelectedAgent(null);
-    loadAgents();
+  const setTier = async (t: string) => {
+    if (!selected) return;
+    setBusy(true);
+    await api.updateAgentTier(selected.id, t);
+    setBusy(false);
+    setSelected(null);
+    load();
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
-      style: 'currency',
-      currency: 'ZAR',
-    }).format(amount);
-  };
-
-  const getTierColor = (tier: string) => {
-    switch (tier) {
-      case 'GOLD': return 'bg-yellow-500 text-white';
-      case 'SILVER': return 'bg-gray-400 text-white';
-      case 'PLATINUM': return 'bg-purple-500 text-white';
-      default: return 'bg-orange-500 text-white';
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ACTIVE': return 'success';
-      case 'SUSPENDED': return 'destructive';
-      case 'PENDING': return 'warning';
-      default: return 'secondary';
-    }
-  };
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-ZA', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
+  const tierVariant = (t: string): 'default' | 'accent' | 'success' | 'warning' | 'secondary' =>
+    t === 'PLATINUM' ? 'accent' : t === 'GOLD' ? 'warning' : t === 'SILVER' ? 'secondary' : 'default';
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-6">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-rose-500 to-pink-600 text-white p-6 rounded-b-[30px]">
-        <div className="flex items-center gap-3">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-white hover:bg-white/20"
-            onClick={() => navigate('/admin')}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <h1 className="text-xl font-bold">Agent Management</h1>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <PageHeader title="Agents" description={`${total} total`} back="/admin" />
 
-      <div className="px-4 mt-4">
-        <p className="text-sm text-gray-500 mb-3">{total} agents total</p>
-        
-        {loading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
-          </div>
-        ) : agents.length === 0 ? (
-          <Card className="bg-white border-0 shadow-md">
-            <CardContent className="p-6 text-center text-gray-400">
-              <UserCheck className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-              <p>No agents found</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {agents.map((agent) => (
-              <Card 
-                key={agent.id} 
-                className="cursor-pointer hover:shadow-lg transition-shadow bg-white border-0 shadow-md"
-                onClick={() => setSelectedAgent(agent)}
+      {loading ? (
+        <div className="text-center py-12 text-ink-muted">Loading…</div>
+      ) : agents.length === 0 ? (
+        <EmptyState icon={ShieldCheck} title="No agents yet" />
+      ) : (
+        <>
+          <div className="grid gap-2">
+            {agents.map((a) => (
+              <button
+                key={a.id}
+                onClick={() => setSelected(a)}
+                className="card text-left p-4 flex items-center gap-3 hover:shadow-pop hover:border-accent-200 transition-all"
               >
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 bg-rose-100 rounded-xl flex items-center justify-center">
-                      <UserCheck className="w-6 h-6 text-rose-500" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold truncate text-gray-900">{agent.business_name}</h3>
-                        <Badge className={getTierColor(agent.tier)}>
-                          {agent.tier}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-gray-500">{agent.agent_code}</p>
-                      <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
-                        <span className="flex items-center gap-1">
-                          <TrendingUp className="w-3 h-3" />
-                          {formatCurrency(agent.total_sales)}
-                        </span>
-                        <Badge variant={getStatusColor(agent.status) as "default" | "secondary" | "destructive" | "outline"}>
-                          {agent.status}
-                        </Badge>
-                      </div>
-                    </div>
+                <IconBadge icon={ShieldCheck} tone="brand" size="sm" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold truncate">{a.business_name}</p>
+                    <Badge variant={tierVariant(a.tier)}>{a.tier}</Badge>
+                    <Badge variant={a.status === 'ACTIVE' ? 'success' : a.status === 'PENDING' ? 'warning' : 'destructive'}>{a.status}</Badge>
                   </div>
-                </CardContent>
-              </Card>
+                  <p className="text-xs text-ink-muted">{a.agent_code} · {a.user_phone}</p>
+                </div>
+                <div className="text-right text-xs">
+                  <p className="font-semibold">{fmt(a.float_balance)}</p>
+                  <p className="text-ink-muted">{fmt(a.monthly_sales)} this month</p>
+                </div>
+              </button>
             ))}
-            
-            {/* Pagination */}
-            <div className="flex justify-center gap-2 pt-4">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page === 1}
-                onClick={() => setPage(p => p - 1)}
-                className="border-gray-200 text-gray-600 hover:bg-gray-50"
-              >
-                Previous
-              </Button>
-              <span className="px-4 py-2 text-sm text-gray-500">Page {page}</span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={agents.length < 20}
-                onClick={() => setPage(p => p + 1)}
-                className="border-gray-200 text-gray-600 hover:bg-gray-50"
-              >
-                Next
-              </Button>
-            </div>
           </div>
-        )}
-      </div>
 
-      {/* Agent Detail Dialog */}
-      <Dialog open={!!selectedAgent} onOpenChange={() => setSelectedAgent(null)}>
-        <DialogContent className="max-w-sm mx-4 bg-white border-0 rounded-3xl">
-          <DialogHeader>
-            <DialogTitle className="text-gray-900">Agent Details</DialogTitle>
-          </DialogHeader>
-          {selectedAgent && (
-            <div className="py-4 space-y-4">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <UserCheck className="w-8 h-8 text-rose-500" />
-                </div>
-                <h3 className="font-bold text-lg text-gray-900">{selectedAgent.business_name}</h3>
-                <p className="text-gray-500">{selectedAgent.agent_code}</p>
-                <Badge className={`mt-2 ${getTierColor(selectedAgent.tier)}`}>
-                  {selectedAgent.tier}
-                </Badge>
-              </div>
-              
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Business Type</span>
-                  <span className="text-gray-900">{selectedAgent.business_type}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Owner</span>
-                  <span className="text-gray-900">{selectedAgent.user_name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Phone</span>
-                  <span className="text-gray-900">{selectedAgent.user_phone}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Float Balance</span>
-                  <span className="font-semibold text-gray-900">{formatCurrency(selectedAgent.float_balance)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Commission Balance</span>
-                  <span className="font-semibold text-emerald-600">{formatCurrency(selectedAgent.commission_balance)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Total Sales</span>
-                  <span className="font-semibold text-gray-900">{formatCurrency(selectedAgent.total_sales)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Monthly Sales</span>
-                  <span className="text-gray-900">{formatCurrency(selectedAgent.monthly_sales)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Joined</span>
-                  <span className="text-gray-900">{formatDate(selectedAgent.created_at)}</span>
-                </div>
-              </div>
-
-              <div className="border-t border-gray-200 pt-4">
-                <p className="text-sm font-medium text-gray-500 mb-2">
-                  <Award className="w-4 h-4 inline mr-1" />
-                  Change Tier
-                </p>
-                <div className="grid grid-cols-4 gap-2">
-                  {TIERS.map((tier) => (
-                    <Button
-                      key={tier}
-                      variant={selectedAgent.tier === tier ? 'default' : 'outline'}
-                      size="sm"
-                      className={selectedAgent.tier === tier ? getTierColor(tier) : 'border-gray-200 text-gray-600 hover:bg-gray-50'}
-                      onClick={() => handleUpdateTier(tier)}
-                      disabled={updating || selectedAgent.tier === tier}
-                    >
-                      {tier.slice(0, 1)}
-                    </Button>
-                  ))}
-                </div>
-                <p className="text-xs text-gray-400 mt-2">
-                  Commission rates: Bronze 5%, Silver 7%, Gold 10%, Platinum 12%
-                </p>
-              </div>
+          {total > agents.length && (
+            <div className="flex justify-center gap-2">
+              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>Prev</Button>
+              <span className="text-sm text-ink-muted self-center">Page {page}</span>
+              <Button variant="outline" size="sm" disabled={agents.length < 20} onClick={() => setPage(page + 1)}>Next</Button>
             </div>
           )}
+        </>
+      )}
+
+      <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{selected?.business_name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p className="text-ink-muted">{selected?.agent_code} · {selected?.user_phone}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-xs text-ink-muted">Float</p>
+                <p className="font-semibold">{fmt(selected?.float_balance || 0)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-ink-muted">Commission</p>
+                <p className="font-semibold">{fmt(selected?.commission_balance || 0)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-ink-muted">This month</p>
+                <p className="font-semibold">{fmt(selected?.monthly_sales || 0)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-ink-muted">Total sales</p>
+                <p className="font-semibold">{fmt(selected?.total_sales || 0)}</p>
+              </div>
+            </div>
+            <div className="pt-3 border-t border-surface-border">
+              <p className="section-title flex items-center gap-2"><Award className="w-4 h-4" /> Tier</p>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {TIERS.map((t) => (
+                  <Button
+                    key={t}
+                    size="sm"
+                    variant={selected?.tier === t ? 'default' : 'outline'}
+                    onClick={() => setTier(t)}
+                    disabled={busy}
+                  >
+                    {t}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedAgent(null)} className="border-gray-200 text-gray-600 hover:bg-gray-50">
-              Close
+            <Button variant="outline" onClick={() => setSelected(null)}>
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Close'}
             </Button>
           </DialogFooter>
         </DialogContent>

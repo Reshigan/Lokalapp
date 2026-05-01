@@ -1,292 +1,146 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { PageHeader } from '@/components/PageHeader';
+import { IconBadge } from '@/components/Stat';
 import api from '@/services/api';
-import { 
-  Zap, 
-  ArrowLeft, 
-  Check, 
-  Loader2,
-  Battery,
-  Search
-} from 'lucide-react';
+import { Zap, Loader2, Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ElectricityPackage {
   id: string;
   name: string;
   description: string | null;
   price: number;
-  package_type: string;
   kwh_amount: number | null;
-  validity_days: number | null;
 }
 
+const fmt = (n: number) => new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(n);
+const normalizePhone = (v: string) => {
+  const d = v.replace(/\D/g, '');
+  if (d.startsWith('27')) return '+' + d;
+  if (d.startsWith('0')) return '+27' + d.slice(1);
+  return d ? '+27' + d : '';
+};
+
 export default function SellElectricityPage() {
-  const navigate = useNavigate();
   const [packages, setPackages] = useState<ElectricityPackage[]>([]);
+  const [phone, setPhone] = useState('');
+  const [meterId, setMeterId] = useState('');
+  const [cash, setCash] = useState('');
+  const [pkg, setPkg] = useState<ElectricityPackage | null>(null);
   const [loading, setLoading] = useState(true);
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [meterNumber, setMeterNumber] = useState('');
-  const [cashReceived, setCashReceived] = useState('');
-  const [selectedPackage, setSelectedPackage] = useState<ElectricityPackage | null>(null);
   const [processing, setProcessing] = useState(false);
-  const [result, setResult] = useState<{ reference: string; kwh: number; commission: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ commission: number; reference: string; kwh: number } | null>(null);
 
   useEffect(() => {
-    loadPackages();
+    api.getElectricityPackages().then((r) => {
+      if (r.data?.packages) setPackages(r.data.packages);
+      setLoading(false);
+    });
   }, []);
 
-  const loadPackages = async () => {
-    setLoading(true);
-    const { data } = await api.getElectricityPackages();
-    if (data?.packages) setPackages(data.packages);
-    setLoading(false);
-  };
-
-  const formatPhone = (value: string) => {
-    const digits = value.replace(/\D/g, '');
-    if (digits.startsWith('27')) {
-      return '+' + digits;
-    } else if (digits.startsWith('0')) {
-      return '+27' + digits.slice(1);
-    }
-    return '+27' + digits;
-  };
-
-  const handleSell = async () => {
-    if (!selectedPackage || !customerPhone || !meterNumber) return;
-    
-    const cash = parseFloat(cashReceived);
-    if (isNaN(cash) || cash < selectedPackage.price) {
-      alert(`Cash received must be at least ${formatCurrency(selectedPackage.price)}`);
-      return;
-    }
-    
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!pkg || !phone) return setError('Pick a package and enter a phone.');
+    const c = parseFloat(cash);
+    if (isNaN(c) || c < pkg.price) return setError(`Cash received must be ≥ ${fmt(pkg.price)}.`);
     setProcessing(true);
-    const { data, error } = await api.processAgentTransaction({
-      customer_phone: formatPhone(customerPhone),
+    const r = await api.processAgentTransaction({
+      customer_phone: normalizePhone(phone),
       product_type: 'ELECTRICITY',
-      package_id: selectedPackage.id,
-      meter_id: meterNumber,
-      cash_received: cash,
+      package_id: pkg.id,
+      meter_id: meterId || undefined,
+      cash_received: c,
     });
     setProcessing(false);
-    
-    if (error) {
-      alert(error);
-      return;
-    }
-    
-    if (data) {
-      setResult({
-        reference: data.reference,
-        kwh: selectedPackage.kwh_amount || 0,
-        commission: data.commission_earned,
-      });
-    }
+    if (r.error) return setError(r.error);
+    if (r.data) setResult({
+      commission: r.data.commission_earned,
+      reference: r.data.reference,
+      kwh: pkg.kwh_amount || 0,
+    });
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
-      style: 'currency',
-      currency: 'ZAR',
-    }).format(amount);
-  };
-
-  const change = selectedPackage && cashReceived 
-    ? parseFloat(cashReceived) - selectedPackage.price 
-    : 0;
-
-  if (loading) {
+  if (result) {
     return (
-      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+      <div className="max-w-md mx-auto space-y-4">
+        <PageHeader title="Sale complete" back="/agent" />
+        <Card className="border-success bg-success-soft">
+          <CardContent className="p-6 text-center space-y-3">
+            <Check className="w-8 h-8 mx-auto text-emerald-700" />
+            <p className="text-emerald-900 font-semibold">{result.kwh} kWh credited</p>
+            <p className="text-xs text-emerald-800">Reference {result.reference} · Commission {fmt(result.commission)}</p>
+            <Button size="sm" onClick={() => { setResult(null); setPhone(''); setCash(''); setPkg(null); setMeterId(''); }}>
+              Sell another
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-6">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-amber-500 to-orange-500 text-white p-6 rounded-b-[30px]">
-        <div className="flex items-center gap-3">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-white hover:bg-white/20"
-            onClick={() => navigate('/agent')}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <h1 className="text-xl font-bold">Sell Electricity</h1>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <PageHeader title="Sell electricity" description="Top up a customer's prepaid meter for cash." back="/agent" />
 
-      <div className="px-4 mt-4 space-y-4">
-        {/* Customer Details */}
-        <Card className="bg-white border-0 shadow-md">
-          <CardContent className="p-4 space-y-4">
+      <Card>
+        <form onSubmit={submit}>
+          <CardContent className="p-5 space-y-4">
             <div>
-              <label className="text-sm font-medium text-gray-500">Customer Phone Number</label>
-              <div className="relative mt-2">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <Input
-                  type="tel"
-                  placeholder="081 234 5678"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  className="pl-10 border-gray-200"
-                />
-              </div>
+              <label className="field-label">Customer phone</label>
+              <Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+27 81 234 5678" />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-500">Meter Number</label>
-              <div className="relative mt-2">
-                <Zap className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <Input
-                  type="text"
-                  placeholder="Enter meter number"
-                  value={meterNumber}
-                  onChange={(e) => setMeterNumber(e.target.value)}
-                  className="pl-10 border-gray-200"
-                />
-              </div>
+              <label className="field-label">Meter ID</label>
+              <Input value={meterId} onChange={(e) => setMeterId(e.target.value)} placeholder="UUID of customer meter" />
+              <p className="text-xs text-ink-muted mt-1">Find the meter from the customer's account.</p>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Package Selection */}
-        <div className="space-y-3">
-          <h2 className="font-semibold text-gray-700">Select Package</h2>
-          {packages.map((pkg) => (
-            <Card 
-              key={pkg.id} 
-              className={`cursor-pointer transition-all bg-white border-0 shadow-md ${
-                selectedPackage?.id === pkg.id 
-                  ? 'ring-2 ring-amber-500 bg-amber-50' 
-                  : 'hover:shadow-lg'
-              }`}
-              onClick={() => {
-                setSelectedPackage(pkg);
-                setCashReceived(pkg.price.toString());
-              }}
-            >
-              <CardContent className="p-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex gap-3">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${
-                      selectedPackage?.id === pkg.id ? 'bg-gradient-to-br from-amber-400 to-orange-500' : 'bg-gray-100'
-                    }`}>
-                      <Zap className={`w-6 h-6 ${
-                        selectedPackage?.id === pkg.id ? 'text-white' : 'text-amber-500'
-                      }`} />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{pkg.name}</h3>
-                      <div className="flex items-center gap-1 mt-1 text-sm text-gray-400">
-                        <Battery className="w-4 h-4" />
-                        {pkg.kwh_amount ? `${pkg.kwh_amount} kWh` : `${pkg.validity_days} days`}
+            <div>
+              <label className="field-label">Package</label>
+              {loading ? (
+                <p className="text-sm text-ink-muted">Loading…</p>
+              ) : (
+                <div className="grid gap-2">
+                  {packages.map((p) => (
+                    <label
+                      key={p.id}
+                      className={cn(
+                        'flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all',
+                        pkg?.id === p.id ? 'border-accent-400 bg-accent-50/40' : 'border-surface-border hover:bg-surface-subtle',
+                      )}
+                    >
+                      <input type="radio" className="sr-only" checked={pkg?.id === p.id} onChange={() => { setPkg(p); setCash(String(p.price)); }} />
+                      <IconBadge icon={Zap} tone={pkg?.id === p.id ? 'accent' : 'neutral'} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold">{p.name}</p>
+                        <p className="text-xs text-ink-muted">{p.kwh_amount} kWh</p>
                       </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-amber-600">
-                      {formatCurrency(pkg.price)}
-                    </p>
-                    {pkg.kwh_amount && (
-                      <p className="text-xs text-gray-400">
-                        {formatCurrency(pkg.price / pkg.kwh_amount)}/kWh
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Cash Received */}
-        {selectedPackage && (
-          <Card className="bg-white border-0 shadow-md">
-            <CardContent className="p-4">
-              <label className="text-sm font-medium text-gray-500">Cash Received</label>
-              <div className="relative mt-2">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg font-bold text-gray-400">R</span>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={cashReceived}
-                  onChange={(e) => setCashReceived(e.target.value)}
-                  className="text-xl font-bold pl-8 border-gray-200"
-                />
-              </div>
-              {change > 0 && (
-                <div className="mt-3 p-3 bg-emerald-50 rounded-xl border border-emerald-200">
-                  <p className="text-sm text-gray-500">Change to give</p>
-                  <p className="text-xl font-bold text-emerald-600">{formatCurrency(change)}</p>
+                      <p className="text-sm font-semibold">{fmt(p.price)}</p>
+                    </label>
+                  ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Sell Button */}
-        <Button
-          className="w-full h-14 text-lg bg-amber-600 hover:bg-amber-700 rounded-xl"
-          onClick={handleSell}
-          disabled={processing || !selectedPackage || !customerPhone || !meterNumber || parseFloat(cashReceived) < (selectedPackage?.price || 0)}
-        >
-          {processing ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : null}
-          Complete Sale
-        </Button>
-      </div>
-
-      {/* Success Dialog */}
-      <Dialog open={!!result} onOpenChange={() => setResult(null)}>
-        <DialogContent className="max-w-sm mx-4 bg-white border-0">
-          <DialogHeader>
-            <DialogTitle className="text-center text-gray-900">
-              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Check className="w-8 h-8 text-emerald-600" />
-              </div>
-              Sale Complete!
-            </DialogTitle>
-            <DialogDescription className="text-center text-gray-500">
-              Commission earned: <span className="font-bold text-emerald-600">{formatCurrency(result?.commission || 0)}</span>
-            </DialogDescription>
-          </DialogHeader>
-          {result && (
-            <div className="py-4">
-              <div className="bg-amber-50 rounded-xl p-4 text-center border border-amber-200">
-                <Zap className="w-12 h-12 mx-auto text-amber-500 mb-2" />
-                <p className="text-2xl font-bold text-gray-900">{result.kwh} kWh</p>
-                <p className="text-gray-500">added to meter</p>
-              </div>
-              <div className="mt-4 text-center">
-                <p className="text-sm text-gray-500">Reference</p>
-                <p className="font-mono text-gray-900">{result.reference}</p>
-              </div>
             </div>
-          )}
-          <DialogFooter>
-            <Button 
-              className="w-full bg-amber-600 hover:bg-amber-700 rounded-xl"
-              onClick={() => {
-                setResult(null);
-                setSelectedPackage(null);
-                setCustomerPhone('');
-                setMeterNumber('');
-                setCashReceived('');
-              }}
-            >
-              New Sale
+
+            <div>
+              <label className="field-label">Cash received</label>
+              <Input type="number" inputMode="decimal" step="0.01" value={cash} onChange={(e) => setCash(e.target.value)} />
+            </div>
+
+            {error && <p className="text-sm text-red-600">{error}</p>}
+
+            <Button type="submit" className="w-full" disabled={processing || !pkg || !phone}>
+              {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+              {pkg ? `Sell ${pkg.kwh_amount} kWh for ${fmt(pkg.price)}` : 'Sell electricity'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </CardContent>
+        </form>
+      </Card>
     </div>
   );
 }

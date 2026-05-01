@@ -1,22 +1,12 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { PageHeader } from '@/components/PageHeader';
+import { EmptyState, IconBadge } from '@/components/Stat';
 import api from '@/services/api';
-import { 
-  Wifi, 
-  ArrowLeft, 
-  Check, 
-  Copy, 
-  Loader2,
-  Clock,
-  Database,
-  Share2,
-  Sparkles,
-  Signal
-} from 'lucide-react';
+import { Wifi, Database, Clock, Loader2, Copy, Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface WiFiPackage {
   id: string;
@@ -29,7 +19,7 @@ interface WiFiPackage {
 
 interface WiFiVoucher {
   id: string;
-  package_name: string;
+  package_name: string | null;
   voucher_code: string;
   status: string;
   data_limit_mb: number;
@@ -38,423 +28,139 @@ interface WiFiVoucher {
   validity_hours: number;
   activated_at: string | null;
   expires_at: string | null;
-  created_at: string;
 }
 
+const fmt = (n: number) => new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(n);
+const fmtMb = (mb: number) => mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`;
+const fmtHours = (h: number) => h >= 24 ? `${Math.round(h / 24)} day${h >= 48 ? 's' : ''}` : `${h} h`;
+
 export default function WiFiPage() {
-  const navigate = useNavigate();
+  const [tab, setTab] = useState<'buy' | 'mine'>('buy');
   const [packages, setPackages] = useState<WiFiPackage[]>([]);
   const [vouchers, setVouchers] = useState<WiFiVoucher[]>([]);
   const [loading, setLoading] = useState(true);
-  const [purchasing, setPurchasing] = useState(false);
-  const [selectedPackage, setSelectedPackage] = useState<WiFiPackage | null>(null);
-  const [purchaseResult, setPurchaseResult] = useState<{ voucher_code: string } | null>(null);
+  const [purchasing, setPurchasing] = useState<string | null>(null);
+  const [code, setCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<'buy' | 'vouchers'>('buy');
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const load = async () => {
     setLoading(true);
-    const [packagesRes, vouchersRes] = await Promise.all([
-      api.getWiFiPackages(),
-      api.getWiFiVouchers(),
-    ]);
-    if (packagesRes.data?.packages) setPackages(packagesRes.data.packages);
-    if (vouchersRes.data?.vouchers) setVouchers(vouchersRes.data.vouchers);
+    const [p, v] = await Promise.all([api.getWiFiPackages(), api.getWiFiVouchers()]);
+    if (p.data?.packages) setPackages(p.data.packages);
+    if (v.data?.vouchers) setVouchers(v.data.vouchers);
     setLoading(false);
   };
 
-  const handlePurchase = async () => {
-    if (!selectedPackage) return;
-    setPurchasing(true);
-    const { data, error } = await api.purchaseWiFi(selectedPackage.id);
-    setPurchasing(false);
-    
-    if (error) {
-      alert(error);
-      return;
-    }
-    
-    if (data) {
-      setPurchaseResult({ voucher_code: data.voucher_code });
-      loadData();
+  useEffect(() => { load(); }, []);
+
+  const buy = async (pkg: WiFiPackage) => {
+    setPurchasing(pkg.id);
+    const r = await api.purchaseWiFi(pkg.id);
+    setPurchasing(null);
+    if (r.error) return alert(r.error);
+    if (r.data?.voucher_code) {
+      setCode(r.data.voucher_code);
+      load();
     }
   };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const shareVoucher = async (voucherCode: string, packageName: string) => {
-    const shareData = {
-      title: 'Lokal WiFi Voucher',
-      text: `Here's your WiFi voucher code: ${voucherCode}\n\nPackage: ${packageName}\n\nConnect to Lokal WiFi and enter this code to get online!`,
-    };
-
-    if (navigator.share && navigator.canShare(shareData)) {
-      try {
-        await navigator.share(shareData);
-      } catch (err) {
-        if ((err as Error).name !== 'AbortError') {
-          copyToClipboard(voucherCode);
-        }
-      }
-    } else {
-      copyToClipboard(voucherCode);
-    }
-  };
-
-  const formatData = (mb: number) => {
-    if (mb >= 1024) {
-      return `${(mb / 1024).toFixed(1)}GB`;
-    }
-    return `${mb}MB`;
-  };
-
-  const formatValidity = (hours: number) => {
-    if (hours >= 720) {
-      return `${Math.floor(hours / 720)} month${hours >= 1440 ? 's' : ''}`;
-    }
-    if (hours >= 24) {
-      return `${Math.floor(hours / 24)} day${hours >= 48 ? 's' : ''}`;
-    }
-    return `${hours} hours`;
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
-      style: 'currency',
-      currency: 'ZAR',
-    }).format(amount);
-  };
-
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center"
-        >
-          <Loader2 className="w-10 h-10 animate-spin text-[#00B894] mx-auto" />
-          <p className="text-gray-500 mt-4 text-sm">Loading WiFi packages...</p>
-        </motion.div>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-6">
-      {/* Header */}
-      <motion.div 
-        className="bg-gradient-to-r from-[#00B894] to-[#00CEC9] px-5 pt-6 pb-8 rounded-b-[30px]"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        <div className="flex items-center gap-3 mb-4">
-          <motion.button 
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => navigate('/user')}
-            className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-white hover:bg-white/30 transition-all"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </motion.button>
-          <div>
-            <h1 className="text-xl font-bold text-white">WiFi Vouchers</h1>
-            <p className="text-white/80 text-sm">Buy data and stay connected</p>
-          </div>
-        </div>
-      </motion.div>
+    <div className="space-y-6">
+      <PageHeader title="WiFi" description="Buy data vouchers and manage active passes." back="/user" />
 
-      <div className="px-4 -mt-4">
-        {/* Tabs */}
-        <div className="flex gap-2 p-1 bg-white rounded-xl shadow-sm mb-4">
+      <div className="flex items-center gap-1 p-1 bg-surface-subtle rounded-xl w-max">
+        {(['buy', 'mine'] as const).map((t) => (
           <button
-            onClick={() => setActiveTab('buy')}
-            className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
-              activeTab === 'buy' 
-                ? 'bg-[#00B894] text-white shadow-md' 
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
+            key={t}
+            onClick={() => setTab(t)}
+            className={cn(
+              'px-4 py-1.5 rounded-lg text-sm font-medium',
+              tab === t ? 'bg-white text-ink shadow-soft' : 'text-ink-soft hover:text-ink',
+            )}
           >
-            <Signal className="w-4 h-4 inline mr-2" />
-            Buy Data
+            {t === 'buy' ? 'Buy data' : `My vouchers ${vouchers.length ? `(${vouchers.length})` : ''}`}
           </button>
-          <button
-            onClick={() => setActiveTab('vouchers')}
-            className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
-              activeTab === 'vouchers' 
-                ? 'bg-[#00B894] text-white shadow-md' 
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <Sparkles className="w-4 h-4 inline mr-2" />
-            My Vouchers ({vouchers.length})
-          </button>
-        </div>
-
-        <AnimatePresence mode="wait">
-          {activeTab === 'buy' ? (
-            <motion.div 
-              key="buy"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              transition={{ duration: 0.3 }}
-              className="space-y-3"
-            >
-              {packages.map((pkg, index) => (
-                <motion.div
-                  key={pkg.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setSelectedPackage(pkg)}
-                  className="cursor-pointer bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all border-l-4 border-[#00B894]"
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-[#00B894] to-[#00CEC9] rounded-xl flex items-center justify-center">
-                        <Wifi className="w-6 h-6 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{pkg.name}</h3>
-                        <p className="text-sm text-gray-500">{pkg.description}</p>
-                        <div className="flex gap-3 mt-2 text-xs text-gray-400">
-                          <span className="flex items-center gap-1">
-                            <Database className="w-3 h-3" />
-                            {formatData(pkg.data_limit_mb)}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {formatValidity(pkg.validity_hours)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-[#00B894]">
-                        {formatCurrency(pkg.price)}
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
-          ) : (
-            <motion.div 
-              key="vouchers"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.3 }}
-              className="space-y-3"
-            >
-              {vouchers.length === 0 ? (
-                <div className="bg-white rounded-2xl p-8 text-center shadow-sm">
-                  <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <Wifi className="w-8 h-8 text-gray-300" />
-                  </div>
-                  <p className="text-gray-400 mb-4">No vouchers yet</p>
-                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                    <Button 
-                      className="bg-[#00B894] hover:bg-[#00A085] text-white font-semibold rounded-xl"
-                      onClick={() => setActiveTab('buy')}
-                    >
-                      Buy Your First Voucher
-                    </Button>
-                  </motion.div>
-                </div>
-              ) : (
-                vouchers.map((voucher, index) => (
-                  <motion.div 
-                    key={voucher.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.1 }}
-                    className="bg-white rounded-2xl p-4 shadow-sm"
-                  >
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{voucher.package_name}</h3>
-                        <Badge className={`mt-1 ${
-                          voucher.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-600 border-emerald-200' :
-                          voucher.status === 'UNUSED' ? 'bg-teal-100 text-teal-600 border-teal-200' :
-                          voucher.status === 'EXPIRED' ? 'bg-red-100 text-red-600 border-red-200' :
-                          'bg-amber-100 text-amber-600 border-amber-200'
-                        }`}>
-                          {voucher.status}
-                        </Badge>
-                      </div>
-                      <div className="flex gap-2">
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => copyToClipboard(voucher.voucher_code)}
-                          className="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-200 transition-all"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </motion.button>
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => shareVoucher(voucher.voucher_code, voucher.package_name)}
-                          className="w-9 h-9 bg-[#00B894]/10 rounded-lg flex items-center justify-center text-[#00B894] hover:bg-[#00B894]/20 transition-all"
-                        >
-                          <Share2 className="w-4 h-4" />
-                        </motion.button>
-                      </div>
-                    </div>
-                    <div className="bg-gradient-to-r from-[#00B894] to-[#00CEC9] rounded-xl p-3 font-mono text-center text-lg text-white">
-                      {voucher.voucher_code}
-                    </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                      <div className="bg-gray-50 rounded-lg p-2">
-                        <p className="text-gray-400 text-xs">Data</p>
-                        <p className="font-medium text-gray-900">
-                          {formatData(voucher.data_remaining_mb)} / {formatData(voucher.data_limit_mb)}
-                        </p>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-2">
-                        <p className="text-gray-400 text-xs">Validity</p>
-                        <p className="font-medium text-gray-900">{formatValidity(voucher.validity_hours)}</p>
-                      </div>
-                    </div>
-                    {voucher.status === 'ACTIVE' && voucher.expires_at && (
-                      <p className="text-xs text-gray-400 mt-2">
-                        Expires: {new Date(voucher.expires_at).toLocaleString()}
-                      </p>
-                    )}
-                  </motion.div>
-                ))
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+        ))}
       </div>
 
-      {/* Purchase Confirmation Dialog */}
-      <Dialog open={!!selectedPackage && !purchaseResult} onOpenChange={() => setSelectedPackage(null)}>
-        <DialogContent className="max-w-sm mx-4 bg-white border-0 rounded-3xl shadow-xl">
-          <DialogHeader>
-            <DialogTitle className="text-gray-900 text-center">Confirm Purchase</DialogTitle>
-            <DialogDescription className="text-gray-500 text-center">
-              You are about to purchase a WiFi voucher
-            </DialogDescription>
-          </DialogHeader>
-          {selectedPackage && (
-            <div className="py-4">
-              <div className="bg-gradient-to-br from-[#00B894]/10 to-[#00CEC9]/10 rounded-2xl p-5 text-center border border-[#00B894]/20">
-                <div className="w-16 h-16 bg-gradient-to-br from-[#00B894] to-[#00CEC9] rounded-2xl flex items-center justify-center mx-auto mb-3">
-                  <Wifi className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="font-bold text-lg text-gray-900">{selectedPackage.name}</h3>
-                <p className="text-gray-500 text-sm">{selectedPackage.description}</p>
-                <div className="flex justify-center gap-4 mt-3 text-sm text-gray-500">
-                  <span className="flex items-center gap-1"><Database className="w-3 h-3" />{formatData(selectedPackage.data_limit_mb)}</span>
-                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatValidity(selectedPackage.validity_hours)}</span>
-                </div>
-                <p className="text-3xl font-bold text-[#00B894] mt-4">
-                  {formatCurrency(selectedPackage.price)}
-                </p>
-              </div>
-            </div>
-          )}
-          <DialogFooter className="flex gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => setSelectedPackage(null)} 
-              className="flex-1 bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-200 rounded-xl"
-            >
-              Cancel
-            </Button>
-            <motion.div className="flex-1" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-              <Button 
-                className="w-full bg-[#00B894] hover:bg-[#00A085] text-white font-semibold rounded-xl border-0"
-                onClick={handlePurchase}
-                disabled={purchasing}
+      {code && (
+        <Card className="border-success bg-success-soft">
+          <CardContent className="p-5 text-center space-y-2">
+            <Check className="w-6 h-6 mx-auto text-emerald-700" />
+            <p className="text-sm text-emerald-900">Voucher purchased — share or activate it.</p>
+            <div className="flex items-center justify-center gap-2">
+              <code className="text-lg font-mono bg-white px-3 py-1.5 rounded-lg border border-emerald-200">{code}</code>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
               >
-                {purchasing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Confirm Purchase
+                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
               </Button>
-            </motion.div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Purchase Success Dialog */}
-      <Dialog open={!!purchaseResult} onOpenChange={() => setPurchaseResult(null)}>
-        <DialogContent className="max-w-sm mx-4 bg-white border-0 rounded-3xl shadow-xl">
-          <DialogHeader>
-            <DialogTitle className="text-center text-gray-900">
-              <motion.div 
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", stiffness: 200 }}
-                className="w-20 h-20 bg-gradient-to-br from-[#00B894] to-[#00CEC9] rounded-full flex items-center justify-center mx-auto mb-4"
-              >
-                <Check className="w-10 h-10 text-white" />
-              </motion.div>
-              Purchase Successful!
-            </DialogTitle>
-          </DialogHeader>
-          {purchaseResult && (
-            <div className="py-4">
-              <p className="text-center text-gray-500 mb-4">
-                Your WiFi voucher code is:
-              </p>
-              <div className="bg-gradient-to-r from-[#00B894] to-[#00CEC9] rounded-xl p-4 font-mono text-center text-xl text-white">
-                {purchaseResult.voucher_code}
-              </div>
-              <div className="flex gap-2 mt-4">
-                <motion.div className="flex-1" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                  <Button
-                    variant="outline"
-                    className="w-full bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-200 rounded-xl"
-                    onClick={() => copyToClipboard(purchaseResult.voucher_code)}
-                  >
-                    {copied ? <Check className="w-4 h-4 mr-2 text-[#00B894]" /> : <Copy className="w-4 h-4 mr-2" />}
-                    {copied ? 'Copied!' : 'Copy'}
+      {loading ? (
+        <div className="text-center py-12 text-ink-muted">Loading…</div>
+      ) : tab === 'buy' ? (
+        packages.length === 0 ? (
+          <EmptyState icon={Wifi} title="No WiFi packages available" />
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2">
+            {packages.map((p) => (
+              <Card key={p.id}>
+                <CardContent className="p-5 flex items-start gap-3">
+                  <IconBadge icon={Wifi} tone="accent" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold">{p.name}</p>
+                    <p className="text-xs text-ink-muted">{p.description}</p>
+                    <div className="flex items-center gap-3 mt-2 text-xs text-ink-soft">
+                      <span className="flex items-center gap-1"><Database className="w-3 h-3" /> {fmtMb(p.data_limit_mb)}</span>
+                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {fmtHours(p.validity_hours)}</span>
+                    </div>
+                    <div className="flex items-center justify-between mt-3">
+                      <p className="text-lg font-semibold">{fmt(p.price)}</p>
+                      <Button size="sm" disabled={purchasing === p.id} onClick={() => buy(p)}>
+                        {purchasing === p.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Buy'}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )
+      ) : vouchers.length === 0 ? (
+        <EmptyState icon={Wifi} title="No vouchers yet" description="Buy your first data pass on the “Buy” tab." />
+      ) : (
+        <div className="grid gap-2">
+          {vouchers.map((v) => (
+            <Card key={v.id}>
+              <CardContent className="p-4 flex items-center gap-3">
+                <IconBadge icon={Wifi} tone={v.status === 'ACTIVE' ? 'accent' : 'neutral'} size="sm" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold">{v.package_name || 'Voucher'}</p>
+                    <Badge variant={v.status === 'ACTIVE' ? 'accent' : v.status === 'UNUSED' ? 'secondary' : 'destructive'}>{v.status}</Badge>
+                  </div>
+                  <code className="text-xs font-mono text-ink-muted">{v.voucher_code}</code>
+                  <p className="text-xs text-ink-muted mt-0.5">
+                    {fmtMb(v.data_remaining_mb || v.data_limit_mb)} remaining
+                    {v.expires_at && ` · expires ${new Date(v.expires_at).toLocaleDateString()}`}
+                  </p>
+                </div>
+                {v.status === 'UNUSED' && (
+                  <Button size="sm" variant="outline" onClick={async () => { await api.activateVoucher(v.id); load(); }}>
+                    Activate
                   </Button>
-                </motion.div>
-                <motion.div className="flex-1" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                  <Button
-                    className="w-full bg-[#00B894] hover:bg-[#00A085] text-white font-semibold rounded-xl border-0"
-                    onClick={() => shareVoucher(purchaseResult.voucher_code, selectedPackage?.name || 'WiFi')}
-                  >
-                    <Share2 className="w-4 h-4 mr-2" />
-                    Share
-                  </Button>
-                </motion.div>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <motion.div className="w-full" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-              <Button 
-                className="w-full bg-[#6C5CE7] hover:bg-[#5B4BD6] text-white font-semibold rounded-xl border-0"
-                onClick={() => {
-                  setPurchaseResult(null);
-                  setSelectedPackage(null);
-                  setActiveTab('vouchers');
-                }}
-              >
-                View My Vouchers
-              </Button>
-            </motion.div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

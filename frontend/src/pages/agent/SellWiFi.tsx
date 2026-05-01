@@ -1,20 +1,12 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { PageHeader } from '@/components/PageHeader';
+import { IconBadge } from '@/components/Stat';
 import api from '@/services/api';
-import { 
-  Wifi, 
-  ArrowLeft, 
-  Check, 
-  Copy, 
-  Loader2,
-  Clock,
-  Database,
-  Search
-} from 'lucide-react';
+import { Wifi, Database, Clock, Loader2, Copy, Check, Share2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface WiFiPackage {
   id: string;
@@ -25,278 +17,147 @@ interface WiFiPackage {
   validity_hours: number;
 }
 
+const fmt = (n: number) => new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(n);
+const fmtMb = (mb: number) => mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`;
+const fmtHours = (h: number) => h >= 24 ? `${Math.round(h / 24)}d` : `${h}h`;
+const normalizePhone = (v: string) => {
+  const d = v.replace(/\D/g, '');
+  if (d.startsWith('27')) return '+' + d;
+  if (d.startsWith('0')) return '+27' + d.slice(1);
+  return d ? '+27' + d : '';
+};
+
 export default function SellWiFiPage() {
-  const navigate = useNavigate();
   const [packages, setPackages] = useState<WiFiPackage[]>([]);
+  const [phone, setPhone] = useState('');
+  const [cash, setCash] = useState('');
+  const [pkg, setPkg] = useState<WiFiPackage | null>(null);
   const [loading, setLoading] = useState(true);
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [cashReceived, setCashReceived] = useState('');
-  const [selectedPackage, setSelectedPackage] = useState<WiFiPackage | null>(null);
   const [processing, setProcessing] = useState(false);
-  const [result, setResult] = useState<{ voucher_code: string; commission: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ voucher_code: string; commission: number; reference: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    loadPackages();
+    api.getWiFiPackages().then((r) => {
+      if (r.data?.packages) setPackages(r.data.packages);
+      setLoading(false);
+    });
   }, []);
 
-  const loadPackages = async () => {
-    setLoading(true);
-    const { data } = await api.getWiFiPackages();
-    if (data?.packages) setPackages(data.packages);
-    setLoading(false);
-  };
-
-  const formatPhone = (value: string) => {
-    const digits = value.replace(/\D/g, '');
-    if (digits.startsWith('27')) {
-      return '+' + digits;
-    } else if (digits.startsWith('0')) {
-      return '+27' + digits.slice(1);
-    }
-    return '+27' + digits;
-  };
-
-  const handleSell = async () => {
-    if (!selectedPackage || !customerPhone) return;
-    
-    const cash = parseFloat(cashReceived);
-    if (isNaN(cash) || cash < selectedPackage.price) {
-      alert(`Cash received must be at least ${formatCurrency(selectedPackage.price)}`);
-      return;
-    }
-    
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!pkg || !phone) return setError('Pick a package and enter a phone.');
+    const c = parseFloat(cash);
+    if (isNaN(c) || c < pkg.price) return setError(`Cash received must be ≥ ${fmt(pkg.price)}.`);
     setProcessing(true);
-    const { data, error } = await api.processAgentTransaction({
-      customer_phone: formatPhone(customerPhone),
+    const r = await api.processAgentTransaction({
+      customer_phone: normalizePhone(phone),
       product_type: 'WIFI',
-      package_id: selectedPackage.id,
-      cash_received: cash,
+      package_id: pkg.id,
+      cash_received: c,
     });
     setProcessing(false);
-    
-    if (error) {
-      alert(error);
-      return;
-    }
-    
-    if (data) {
-      setResult({
-        voucher_code: data.voucher_code || '',
-        commission: data.commission_earned,
-      });
-    }
+    if (r.error) return setError(r.error);
+    if (r.data) setResult({
+      voucher_code: r.data.voucher_code || '',
+      commission: r.data.commission_earned,
+      reference: r.data.reference,
+    });
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const formatData = (mb: number) => {
-    if (mb >= 1024) {
-      return `${(mb / 1024).toFixed(1)}GB`;
-    }
-    return `${mb}MB`;
-  };
-
-  const formatValidity = (hours: number) => {
-    if (hours >= 720) {
-      return `${Math.floor(hours / 720)} month${hours >= 1440 ? 's' : ''}`;
-    }
-    if (hours >= 24) {
-      return `${Math.floor(hours / 24)} day${hours >= 48 ? 's' : ''}`;
-    }
-    return `${hours} hours`;
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
-      style: 'currency',
-      currency: 'ZAR',
-    }).format(amount);
-  };
-
-  const change = selectedPackage && cashReceived 
-    ? parseFloat(cashReceived) - selectedPackage.price 
-    : 0;
-
-  if (loading) {
+  if (result) {
     return (
-      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-teal-500" />
+      <div className="max-w-md mx-auto space-y-4">
+        <PageHeader title="Sale complete" back="/agent" />
+        <Card className="border-success bg-success-soft">
+          <CardContent className="p-6 text-center space-y-3">
+            <Check className="w-8 h-8 mx-auto text-emerald-700" />
+            <p className="text-sm text-emerald-900">WiFi voucher sold. Share with the customer.</p>
+            <div className="flex items-center justify-center gap-2">
+              <code className="text-lg font-mono bg-white px-3 py-2 rounded-lg border border-emerald-200">{result.voucher_code}</code>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { navigator.clipboard.writeText(result.voucher_code); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+              >
+                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              </Button>
+            </div>
+            <p className="text-xs text-emerald-800">Reference {result.reference} · Commission {fmt(result.commission)}</p>
+            <div className="flex justify-center gap-2 pt-2">
+              {navigator.share && (
+                <Button size="sm" variant="outline" onClick={() => navigator.share({ text: `Lokal voucher: ${result.voucher_code}` })}>
+                  <Share2 className="w-4 h-4" /> Share
+                </Button>
+              )}
+              <Button size="sm" onClick={() => { setResult(null); setPhone(''); setCash(''); setPkg(null); }}>
+                Sell another
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-6">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-teal-500 to-teal-600 text-white p-6 rounded-b-[30px]">
-        <div className="flex items-center gap-3">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-white hover:bg-white/20"
-            onClick={() => navigate('/agent')}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <h1 className="text-xl font-bold">Sell WiFi Voucher</h1>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <PageHeader title="Sell WiFi" description="Sell a voucher to a customer for cash." back="/agent" />
 
-      <div className="px-4 mt-4 space-y-4">
-        {/* Customer Phone */}
-        <Card className="bg-white border-0 shadow-md">
-          <CardContent className="p-4">
-            <label className="text-sm font-medium text-gray-500">Customer Phone Number</label>
-            <div className="relative mt-2">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <Input
-                type="tel"
-                placeholder="081 234 5678"
-                value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
-                className="pl-10 border-gray-200"
-              />
+      <Card>
+        <form onSubmit={submit}>
+          <CardContent className="p-5 space-y-4">
+            <div>
+              <label className="field-label">Customer phone</label>
+              <Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+27 81 234 5678" />
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Package Selection */}
-        <div className="space-y-3">
-          <h2 className="font-semibold text-gray-700">Select Package</h2>
-          {packages.map((pkg) => (
-            <Card 
-              key={pkg.id} 
-              className={`cursor-pointer transition-all bg-white border-0 shadow-md ${
-                selectedPackage?.id === pkg.id 
-                  ? 'ring-2 ring-teal-500 bg-teal-50' 
-                  : 'hover:shadow-lg'
-              }`}
-              onClick={() => {
-                setSelectedPackage(pkg);
-                setCashReceived(pkg.price.toString());
-              }}
-            >
-              <CardContent className="p-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex gap-3">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${
-                      selectedPackage?.id === pkg.id ? 'bg-teal-500' : 'bg-gray-100'
-                    }`}>
-                      <Wifi className={`w-6 h-6 ${
-                        selectedPackage?.id === pkg.id ? 'text-white' : 'text-teal-500'
-                      }`} />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{pkg.name}</h3>
-                      <div className="flex gap-3 mt-1 text-xs text-gray-400">
-                        <span className="flex items-center gap-1">
-                          <Database className="w-3 h-3" />
-                          {formatData(pkg.data_limit_mb)}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {formatValidity(pkg.validity_hours)}
-                        </span>
+            <div>
+              <label className="field-label">WiFi package</label>
+              {loading ? (
+                <p className="text-sm text-ink-muted">Loading…</p>
+              ) : (
+                <div className="grid gap-2">
+                  {packages.map((p) => (
+                    <label
+                      key={p.id}
+                      className={cn(
+                        'flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all',
+                        pkg?.id === p.id ? 'border-accent-400 bg-accent-50/40' : 'border-surface-border hover:bg-surface-subtle',
+                      )}
+                    >
+                      <input type="radio" className="sr-only" checked={pkg?.id === p.id} onChange={() => { setPkg(p); setCash(String(p.price)); }} />
+                      <IconBadge icon={Wifi} tone={pkg?.id === p.id ? 'accent' : 'neutral'} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold">{p.name}</p>
+                        <p className="text-xs text-ink-muted flex items-center gap-3">
+                          <span className="flex items-center gap-1"><Database className="w-3 h-3" /> {fmtMb(p.data_limit_mb)}</span>
+                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {fmtHours(p.validity_hours)}</span>
+                        </p>
                       </div>
-                    </div>
-                  </div>
-                  <p className="text-lg font-bold text-teal-600">
-                    {formatCurrency(pkg.price)}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Cash Received */}
-        {selectedPackage && (
-          <Card className="bg-white border-0 shadow-md">
-            <CardContent className="p-4">
-              <label className="text-sm font-medium text-gray-500">Cash Received</label>
-              <div className="relative mt-2">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg font-bold text-gray-400">R</span>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={cashReceived}
-                  onChange={(e) => setCashReceived(e.target.value)}
-                  className="text-xl font-bold pl-8 border-gray-200"
-                />
-              </div>
-              {change > 0 && (
-                <div className="mt-3 p-3 bg-emerald-50 rounded-xl border border-emerald-200">
-                  <p className="text-sm text-gray-500">Change to give</p>
-                  <p className="text-xl font-bold text-emerald-600">{formatCurrency(change)}</p>
+                      <p className="text-sm font-semibold">{fmt(p.price)}</p>
+                    </label>
+                  ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Sell Button */}
-        <Button
-          className="w-full h-14 text-lg bg-teal-600 hover:bg-teal-700 rounded-xl"
-          onClick={handleSell}
-          disabled={processing || !selectedPackage || !customerPhone || parseFloat(cashReceived) < (selectedPackage?.price || 0)}
-        >
-          {processing ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : null}
-          Complete Sale
-        </Button>
-      </div>
-
-      {/* Success Dialog */}
-      <Dialog open={!!result} onOpenChange={() => setResult(null)}>
-        <DialogContent className="max-w-sm mx-4 bg-white border-0">
-          <DialogHeader>
-            <DialogTitle className="text-center text-gray-900">
-              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Check className="w-8 h-8 text-emerald-600" />
-              </div>
-              Sale Complete!
-            </DialogTitle>
-            <DialogDescription className="text-center text-gray-500">
-              Commission earned: <span className="font-bold text-emerald-600">{formatCurrency(result?.commission || 0)}</span>
-            </DialogDescription>
-          </DialogHeader>
-          {result && (
-            <div className="py-4">
-              <p className="text-center text-gray-500 mb-2">
-                WiFi Voucher Code:
-              </p>
-              <div className="bg-teal-600 rounded-xl p-4 font-mono text-center text-xl text-white">
-                {result.voucher_code}
-              </div>
-              <Button
-                variant="outline"
-                className="w-full mt-4 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
-                onClick={() => copyToClipboard(result.voucher_code)}
-              >
-                {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
-                {copied ? 'Copied!' : 'Copy Code'}
-              </Button>
             </div>
-          )}
-          <DialogFooter>
-            <Button 
-              className="w-full bg-teal-600 hover:bg-teal-700 rounded-xl"
-              onClick={() => {
-                setResult(null);
-                setSelectedPackage(null);
-                setCustomerPhone('');
-                setCashReceived('');
-              }}
-            >
-              New Sale
+
+            <div>
+              <label className="field-label">Cash received</label>
+              <Input type="number" inputMode="decimal" step="0.01" value={cash} onChange={(e) => setCash(e.target.value)} />
+            </div>
+
+            {error && <p className="text-sm text-red-600">{error}</p>}
+
+            <Button type="submit" className="w-full" disabled={processing || !pkg || !phone}>
+              {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" />}
+              {pkg ? `Sell for ${fmt(pkg.price)}` : 'Sell WiFi'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </CardContent>
+        </form>
+      </Card>
     </div>
   );
 }
