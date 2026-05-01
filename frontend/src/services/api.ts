@@ -1,4 +1,8 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://lokal-api.reshigan-085.workers.dev';
+// Cloudflare Worker (D1-backed) is the canonical backend.
+// Dev: VITE_API_URL=http://localhost:8787 (default for `wrangler dev`)
+// Prod: deploy the worker via `cd backend-cloudflare && wrangler deploy` and set
+//        VITE_API_URL accordingly when building the frontend.
 
 interface ApiResponse<T> {
   data?: T;
@@ -950,6 +954,453 @@ class ApiService {
       body: JSON.stringify({ low_float_threshold }),
     });
   }
+
+  // ============ Tariffs ============
+  async listTariffs() {
+    return this.request<Tariff[]>('/tariffs/');
+  }
+
+  async getTariff(id: string) {
+    return this.request<Tariff>(`/tariffs/${id}`);
+  }
+
+  async createTariff(payload: TariffCreate) {
+    return this.request<Tariff>('/tariffs/', { method: 'POST', body: JSON.stringify(payload) });
+  }
+
+  async deactivateTariff(id: string) {
+    return this.request<void>(`/tariffs/${id}`, { method: 'DELETE' });
+  }
+
+  // ============ Community offices ============
+  async listCommunityOffices() {
+    return this.request<CommunityOffice[]>('/community-offices/');
+  }
+
+  async createCommunityOffice(payload: CommunityOfficeCreate) {
+    return this.request<CommunityOffice>('/community-offices/', { method: 'POST', body: JSON.stringify(payload) });
+  }
+
+  // ============ Households ============
+  async listHouseholds(q?: string, mineOnly: boolean = false) {
+    const qs = new URLSearchParams();
+    if (q) qs.set('q', q);
+    if (mineOnly) qs.set('mine_only', 'true');
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return this.request<Household[]>(`/households/${suffix}`);
+  }
+
+  async myHouseholds() {
+    return this.request<Household[]>('/households/mine');
+  }
+
+  async getHousehold(id: string) {
+    return this.request<Household>(`/households/${id}`);
+  }
+
+  async createHousehold(payload: HouseholdCreate) {
+    return this.request<Household>('/households/', { method: 'POST', body: JSON.stringify(payload) });
+  }
+
+  async updateHousehold(id: string, payload: Partial<HouseholdCreate> & { status?: string }) {
+    return this.request<Household>(`/households/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+  }
+
+  // ============ Billing / readings / invoices ============
+  async captureReading(payload: MeterReadingCreate) {
+    return this.request<Invoice>('/billing/readings', { method: 'POST', body: JSON.stringify(payload) });
+  }
+
+  async listInvoices(params: { household_id?: string; status?: string } = {}) {
+    const qs = new URLSearchParams();
+    if (params.household_id) qs.set('household_id', params.household_id);
+    if (params.status) qs.set('status', params.status);
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return this.request<Invoice[]>(`/billing/invoices${suffix}`);
+  }
+
+  async getInvoice(id: string) {
+    return this.request<Invoice>(`/billing/invoices/${id}`);
+  }
+
+  async createCollection(payload: CashCollectionCreate) {
+    return this.request<CashCollection>('/billing/collections', { method: 'POST', body: JSON.stringify(payload) });
+  }
+
+  async confirmCollection(id: string, confirm_code: string) {
+    return this.request<CashCollection>(`/billing/collections/${id}/confirm`, {
+      method: 'POST',
+      body: JSON.stringify({ confirm_code }),
+    });
+  }
+
+  async myCollections(unsettledOnly: boolean = false) {
+    const suffix = unsettledOnly ? '?unsettled_only=true' : '';
+    return this.request<CashCollection[]>(`/billing/collections/mine${suffix}`);
+  }
+
+  async cashOnHand() {
+    return this.request<{ amount: number; num_collections: number }>('/billing/collections/cash-on-hand');
+  }
+
+  // ============ Settlements ============
+  async submitSettlement(payload: { community_office_id: string; declared_amount: number; notes?: string }) {
+    return this.request<Settlement>('/settlements/', { method: 'POST', body: JSON.stringify(payload) });
+  }
+
+  async confirmSettlement(id: string, confirmed_amount: number, notes?: string) {
+    return this.request<Settlement>(`/settlements/${id}/confirm`, {
+      method: 'POST',
+      body: JSON.stringify({ confirmed_amount, notes }),
+    });
+  }
+
+  async listSettlements(params: { status?: string; mine_only?: boolean } = { mine_only: true }) {
+    const qs = new URLSearchParams();
+    if (params.status) qs.set('status', params.status);
+    if (params.mine_only !== undefined) qs.set('mine_only', String(params.mine_only));
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return this.request<Settlement[]>(`/settlements/${suffix}`);
+  }
+
+  async getSettlement(id: string) {
+    return this.request<Settlement>(`/settlements/${id}`);
+  }
+
+  // ============ Notifications ============
+  async getVapidPublicKey() {
+    return this.request<{ public_key: string }>('/notifications/vapid-public-key');
+  }
+
+  async subscribePush(payload: { endpoint: string; p256dh: string; auth: string; user_agent?: string }) {
+    return this.request<{ id: string }>('/notifications/subscribe', { method: 'POST', body: JSON.stringify(payload) });
+  }
+
+  async unsubscribePush(endpoint: string) {
+    const qs = new URLSearchParams({ endpoint }).toString();
+    return this.request<void>(`/notifications/subscribe?${qs}`, { method: 'DELETE' });
+  }
+
+  async listNotifications(unreadOnly: boolean = false) {
+    const suffix = unreadOnly ? '?unread_only=true' : '';
+    return this.request<NotificationItem[]>(`/notifications/${suffix}`);
+  }
+
+  async markNotificationRead(id: string) {
+    return this.request<void>(`/notifications/${id}/read`, { method: 'POST' });
+  }
+
+  async sendTestNotification(title?: string, body?: string) {
+    return this.request<NotificationItem>('/notifications/test', {
+      method: 'POST',
+      body: JSON.stringify({ title: title || 'Test', body: body || 'Hello from Lokal' }),
+    });
+  }
+
+  // ============ Support tickets ============
+  async createTicket(payload: SupportTicketCreate) {
+    return this.request<SupportTicket>('/support/tickets', { method: 'POST', body: JSON.stringify(payload) });
+  }
+
+  async listTickets(params: { status?: string; mine_only?: boolean; assigned_to_me?: boolean } = {}) {
+    const qs = new URLSearchParams();
+    if (params.status) qs.set('status', params.status);
+    if (params.mine_only) qs.set('mine_only', 'true');
+    if (params.assigned_to_me) qs.set('assigned_to_me', 'true');
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return this.request<SupportTicket[]>(`/support/tickets${suffix}`);
+  }
+
+  async getTicket(id: string) {
+    return this.request<{ ticket: SupportTicket; messages: SupportMessage[] }>(`/support/tickets/${id}`);
+  }
+
+  async replyTicket(id: string, body: string, is_internal = false) {
+    return this.request<SupportMessage>(`/support/tickets/${id}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ body, is_internal }),
+    });
+  }
+
+  async setTicketStatus(id: string, status: string) {
+    return this.request<{ status: string }>(`/support/tickets/${id}/status`, {
+      method: 'POST',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  async assignTicket(id: string, assignee_user_id: string) {
+    return this.request<{ ok: boolean }>(`/support/tickets/${id}/assign`, {
+      method: 'POST',
+      body: JSON.stringify({ assignee_user_id }),
+    });
+  }
+
+  // ============ Roles (admin) ============
+  async listRoleGrants() {
+    return this.request<RoleGrant[]>('/support/roles');
+  }
+
+  async grantRole(user_id: string, role: string) {
+    return this.request<{ ok: boolean }>('/support/roles/grant', {
+      method: 'POST',
+      body: JSON.stringify({ user_id, role }),
+    });
+  }
+
+  async revokeRole(user_id: string, role: string) {
+    return this.request<{ ok: boolean }>('/support/roles/revoke', {
+      method: 'POST',
+      body: JSON.stringify({ user_id, role }),
+    });
+  }
+}
+
+export interface SupportTicketCreate {
+  category: 'BILLING' | 'METER' | 'PAYMENT' | 'ACCOUNT' | 'TECHNICAL' | 'OTHER';
+  priority?: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+  subject: string;
+  description: string;
+  related_entity_type?: string;
+  related_entity_id?: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  reference_number: string;
+  opened_by: { id: string; name: string } | null;
+  category: string;
+  priority: string;
+  subject: string;
+  description: string;
+  status: 'OPEN' | 'IN_PROGRESS' | 'WAITING' | 'RESOLVED' | 'CLOSED';
+  related_entity_type: string | null;
+  related_entity_id: string | null;
+  assigned_to: { id: string; name: string } | null;
+  resolved_at: string | null;
+  closed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupportMessage {
+  id: string;
+  author?: { id: string; name: string } | null;
+  body: string;
+  attachment_url: string | null;
+  is_internal: boolean;
+  created_at: string;
+}
+
+export interface RoleGrant {
+  id: string;
+  user_id: string;
+  role: string;
+  granted_at: string;
+  phone_number: string;
+  first_name: string | null;
+  last_name: string | null;
+}
+
+// ============ Billing types ============
+
+export interface TariffBlock {
+  id?: string;
+  from_kwh: number;
+  to_kwh: number | null;
+  rate_per_kwh: number;
+  sort_order: number;
+}
+
+export interface TariffTimeBand {
+  id?: string;
+  name: string;
+  start_hour: number;
+  end_hour: number;
+  rate_per_kwh: number;
+  sort_order: number;
+}
+
+export interface Tariff {
+  id: string;
+  name: string;
+  description: string | null;
+  type: 'FLAT' | 'UNITS_BLOCK' | 'TIME_OF_USE';
+  billing_period: 'WEEKLY' | 'MONTHLY';
+  flat_rate_per_kwh: number | null;
+  service_fee: number;
+  is_active: number;
+  blocks: TariffBlock[];
+  time_bands: TariffTimeBand[];
+}
+
+export interface TariffCreate {
+  name: string;
+  description?: string;
+  type: 'FLAT' | 'UNITS_BLOCK' | 'TIME_OF_USE';
+  billing_period: 'WEEKLY' | 'MONTHLY';
+  flat_rate_per_kwh?: number | null;
+  service_fee?: number;
+  blocks?: Omit<TariffBlock, 'id'>[];
+  time_bands?: Omit<TariffTimeBand, 'id'>[];
+}
+
+export interface CommunityOffice {
+  id: string;
+  name: string;
+  code: string;
+  address: string | null;
+  contact_phone: string | null;
+  is_active: number;
+}
+
+export interface CommunityOfficeCreate {
+  name: string;
+  code: string;
+  address?: string;
+  contact_phone?: string;
+  manager_user_id?: string;
+}
+
+export interface Household {
+  id: string;
+  account_number: string;
+  primary_contact_name: string;
+  primary_contact_phone: string;
+  primary_contact_id_number: string | null;
+  email: string | null;
+  erf_number: string | null;
+  street_address: string | null;
+  suburb: string | null;
+  city: string | null;
+  province: string | null;
+  postal_code: string | null;
+  tariff_id: string;
+  tariff_name?: string | null;
+  meter_id: string | null;
+  meter_number?: string | null;
+  community_office_id: string | null;
+  user_id: string | null;
+  opening_balance: number;
+  current_balance: number;
+  last_reading_kwh: number;
+  last_reading_at: string | null;
+  status: string;
+  created_at: string;
+}
+
+export interface HouseholdCreate {
+  primary_contact_name: string;
+  primary_contact_phone: string;
+  primary_contact_id_number?: string;
+  email?: string;
+  erf_number?: string;
+  street_address?: string;
+  suburb?: string;
+  city?: string;
+  province?: string;
+  postal_code?: string;
+  location_lat?: number;
+  location_lng?: number;
+  tariff_id: string;
+  meter_number?: string;
+  community_office_id?: string;
+  user_phone?: string;
+  opening_balance?: number;
+  notes?: string;
+}
+
+export interface MeterReadingCreate {
+  household_id: string;
+  current_reading_kwh: number;
+  peak_kwh?: number;
+  standard_kwh?: number;
+  off_peak_kwh?: number;
+  photo_url?: string;
+  notes?: string;
+  issue_invoice?: boolean;
+}
+
+export interface InvoiceLineItem {
+  label: string;
+  kwh: number;
+  rate: number;
+  amount: number;
+}
+
+export interface Invoice {
+  id: string;
+  invoice_number: string;
+  household_id: string;
+  household_account_number?: string | null;
+  household_contact_name?: string | null;
+  period_start: string;
+  period_end: string;
+  issue_date: string;
+  due_date: string;
+  previous_reading_kwh: number;
+  current_reading_kwh: number;
+  kwh_consumed: number;
+  energy_charge: number;
+  service_fee: number;
+  total_amount: number;
+  amount_paid: number;
+  status: 'DRAFT' | 'ISSUED' | 'PAID' | 'CANCELLED' | 'OVERDUE';
+  line_items: InvoiceLineItem[];
+  notes: string | null;
+  created_at: string;
+}
+
+export interface CashCollection {
+  id: string;
+  receipt_number: string;
+  invoice_id: string;
+  invoice_number?: string | null;
+  household_id: string;
+  agent_id: string;
+  amount: number;
+  status: 'PENDING_HOUSEHOLD_CONFIRM' | 'CONFIRMED' | 'DISPUTED' | 'VOID';
+  agent_confirmed_at: string | null;
+  household_confirmed_at: string | null;
+  household_confirm_code?: string | null;
+  settled: boolean;
+  settlement_id: string | null;
+  collected_at: string;
+}
+
+export interface CashCollectionCreate {
+  invoice_id: string;
+  amount: number;
+  location_lat?: number;
+  location_lng?: number;
+  notes?: string;
+}
+
+export interface Settlement {
+  id: string;
+  reference_number: string;
+  agent_id: string;
+  community_office_id: string;
+  community_office_name?: string | null;
+  declared_amount: number;
+  expected_amount: number;
+  confirmed_amount: number | null;
+  num_collections: number;
+  status: 'SUBMITTED' | 'CONFIRMED' | 'DISPUTED' | 'CANCELLED';
+  agent_confirmed_at: string | null;
+  office_confirmed_at: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface NotificationItem {
+  id: string;
+  category: string;
+  title: string;
+  body: string;
+  data: string | null;
+  is_read: boolean;
+  created_at: string;
 }
 
 export const api = new ApiService();

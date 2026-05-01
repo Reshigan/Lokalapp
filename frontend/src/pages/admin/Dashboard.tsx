@@ -257,13 +257,53 @@ export default function AdminDashboard() {
                 <Settings className="w-5 h-5" />
                 <span className="text-xs">Products</span>
               </Button>
-              <Button 
+              <Button
                 variant="outline"
                 className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
                 onClick={() => navigate('/admin/reports')}
               >
                 <BarChart3 className="w-5 h-5" />
                 <span className="text-xs">Reports</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
+                onClick={() => navigate('/admin/tariffs')}
+              >
+                <BarChart3 className="w-5 h-5" />
+                <span className="text-xs">Tariffs</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
+                onClick={() => navigate('/admin/community-offices')}
+              >
+                <BarChart3 className="w-5 h-5" />
+                <span className="text-xs">Offices</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
+                onClick={() => navigate('/admin/settlements')}
+              >
+                <BarChart3 className="w-5 h-5" />
+                <span className="text-xs">Settlements</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
+                onClick={() => navigate('/admin/roles')}
+              >
+                <BarChart3 className="w-5 h-5" />
+                <span className="text-xs">Roles</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
+                onClick={() => navigate('/support')}
+              >
+                <BarChart3 className="w-5 h-5" />
+                <span className="text-xs">Support</span>
               </Button>
             </div>
           </CardContent>

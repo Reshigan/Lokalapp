@@ -28,6 +28,22 @@ import AdminProductsPage from './pages/admin/Products';
 import AdminReportsPage from './pages/admin/Reports';
 import AdminSettingsPage from './pages/admin/Settings';
 import AdminAuditLogsPage from './pages/admin/AuditLogs';
+import AdminTariffsPage from './pages/admin/Tariffs';
+import AdminCommunityOfficesPage from './pages/admin/CommunityOffices';
+import AdminSettlementsPage from './pages/admin/Settlements';
+import HouseholdsPage from './pages/agent/Households';
+import HouseholdNewPage from './pages/agent/HouseholdNew';
+import HouseholdDetailPage from './pages/agent/HouseholdDetail';
+import MeterReadingPage from './pages/agent/MeterReading';
+import AgentInvoiceDetailPage from './pages/agent/InvoiceDetail';
+import SettlementPage from './pages/agent/Settlement';
+import UserInvoicesPage from './pages/user/Invoices';
+import UserInvoiceDetailPage from './pages/user/InvoiceDetail';
+import ConfirmPaymentPage from './pages/user/ConfirmPayment';
+import NotificationsPage from './pages/Notifications';
+import SupportPage from './pages/Support';
+import SupportTicketPage from './pages/SupportTicket';
+import AdminRolesPage from './pages/admin/Roles';
 import { Loader2 } from 'lucide-react';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -94,7 +110,19 @@ function AppRoutes() {
       <Route path="/agent/float" element={<ProtectedRoute><FloatPage /></ProtectedRoute>} />
       <Route path="/agent/reports" element={<ProtectedRoute><SalesReportsPage /></ProtectedRoute>} />
       <Route path="/agent/alerts" element={<ProtectedRoute><AlertsPage /></ProtectedRoute>} />
-      
+      <Route path="/agent/households" element={<ProtectedRoute><HouseholdsPage /></ProtectedRoute>} />
+      <Route path="/agent/households/new" element={<ProtectedRoute><HouseholdNewPage /></ProtectedRoute>} />
+      <Route path="/agent/households/:id" element={<ProtectedRoute><HouseholdDetailPage /></ProtectedRoute>} />
+      <Route path="/agent/households/:id/reading" element={<ProtectedRoute><MeterReadingPage /></ProtectedRoute>} />
+      <Route path="/agent/invoices/:id" element={<ProtectedRoute><AgentInvoiceDetailPage /></ProtectedRoute>} />
+      <Route path="/agent/settlements" element={<ProtectedRoute><SettlementPage /></ProtectedRoute>} />
+      <Route path="/agent/settlements/:id" element={<ProtectedRoute><SettlementPage /></ProtectedRoute>} />
+
+      {/* Notifications + Support (shared) */}
+      <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+      <Route path="/support" element={<ProtectedRoute><SupportPage /></ProtectedRoute>} />
+      <Route path="/support/:id" element={<ProtectedRoute><SupportTicketPage /></ProtectedRoute>} />
+
       {/* Admin Routes */}
       <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
       <Route path="/admin/users" element={<ProtectedRoute><AdminUsersPage /></ProtectedRoute>} />
@@ -103,7 +131,16 @@ function AppRoutes() {
       <Route path="/admin/reports" element={<ProtectedRoute><AdminReportsPage /></ProtectedRoute>} />
       <Route path="/admin/settings" element={<ProtectedRoute><AdminSettingsPage /></ProtectedRoute>} />
       <Route path="/admin/audit-logs" element={<ProtectedRoute><AdminAuditLogsPage /></ProtectedRoute>} />
-      
+      <Route path="/admin/tariffs" element={<ProtectedRoute><AdminTariffsPage /></ProtectedRoute>} />
+      <Route path="/admin/community-offices" element={<ProtectedRoute><AdminCommunityOfficesPage /></ProtectedRoute>} />
+      <Route path="/admin/settlements" element={<ProtectedRoute><AdminSettlementsPage /></ProtectedRoute>} />
+      <Route path="/admin/roles" element={<ProtectedRoute><AdminRolesPage /></ProtectedRoute>} />
+
+      {/* User extra routes */}
+      <Route path="/user/invoices" element={<ProtectedRoute><UserInvoicesPage /></ProtectedRoute>} />
+      <Route path="/user/invoices/:id" element={<ProtectedRoute><UserInvoiceDetailPage /></ProtectedRoute>} />
+      <Route path="/user/payments/confirm/:id" element={<ProtectedRoute><ConfirmPaymentPage /></ProtectedRoute>} />
+
       {/* Default redirect based on role */}
       <Route path="/" element={<Navigate to={getDefaultRoute()} replace />} />
       <Route path="*" element={<Navigate to={getDefaultRoute()} replace />} />
