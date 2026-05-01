@@ -99,12 +99,36 @@ export default function UserDashboard() {
       gradient: 'from-[#00B894] to-[#00CEC9]',
       iconBg: 'bg-white/20'
     },
-    { 
-      icon: History, 
-      title: 'History', 
+    {
+      icon: History,
+      title: 'History',
       description: 'View all your past transactions',
-      path: '/user/history', 
+      path: '/user/history',
       gradient: 'from-[#E84393] to-[#FD79A8]',
+      iconBg: 'bg-white/20'
+    },
+    {
+      icon: Zap,
+      title: 'Invoices',
+      description: 'Electricity bills and receipts',
+      path: '/user/invoices',
+      gradient: 'from-[#16A085] to-[#1ABC9C]',
+      iconBg: 'bg-white/20'
+    },
+    {
+      icon: History,
+      title: 'Notifications',
+      description: 'Push alerts and message inbox',
+      path: '/notifications',
+      gradient: 'from-[#34495E] to-[#2C3E50]',
+      iconBg: 'bg-white/20'
+    },
+    {
+      icon: Wallet,
+      title: 'Support',
+      description: 'Raise an issue or check ticket status',
+      path: '/support',
+      gradient: 'from-[#0EA5E9] to-[#1D4ED8]',
       iconBg: 'bg-white/20'
     },
   ];

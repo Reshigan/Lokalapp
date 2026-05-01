@@ -5,10 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
-import { 
-  Wallet, 
-  Users, 
-  TrendingUp, 
+import {
+  Wallet,
+  Users,
+  TrendingUp,
   DollarSign,
   LogOut,
   Loader2,
@@ -16,7 +16,10 @@ import {
   Plus,
   Search,
   Wifi,
-  Zap
+  Zap,
+  Home,
+  Coins,
+  Bell
 } from 'lucide-react';
 
 interface AgentProfile {
@@ -225,13 +228,43 @@ export default function AgentDashboard() {
                 <Search className="w-6 h-6" />
                 Find Customer
               </Button>
-              <Button 
+              <Button
                 variant="outline"
                 className="h-20 flex-col gap-2 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
                 onClick={() => navigate('/agent/customers/new')}
               >
                 <Plus className="w-6 h-6" />
                 New Customer
+              </Button>
+              <Button
+                className="h-20 flex-col gap-2 bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 rounded-xl"
+                onClick={() => navigate('/agent/households')}
+              >
+                <Home className="w-6 h-6" />
+                Households
+              </Button>
+              <Button
+                className="h-20 flex-col gap-2 bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 rounded-xl"
+                onClick={() => navigate('/agent/settlements')}
+              >
+                <Coins className="w-6 h-6" />
+                Settle cash
+              </Button>
+              <Button
+                variant="outline"
+                className="h-20 flex-col gap-2 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
+                onClick={() => navigate('/notifications')}
+              >
+                <Bell className="w-6 h-6" />
+                Notifications
+              </Button>
+              <Button
+                variant="outline"
+                className="h-20 flex-col gap-2 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
+                onClick={() => navigate('/support')}
+              >
+                <Bell className="w-6 h-6" />
+                Support
               </Button>
             </div>
           </CardContent>

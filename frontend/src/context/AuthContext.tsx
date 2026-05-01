@@ -14,6 +14,9 @@ interface User {
   has_pin: boolean;
   is_agent?: boolean;
   is_admin?: boolean;
+  is_support?: boolean;
+  is_office_manager?: boolean;
+  roles?: string[];
 }
 
 interface AuthContextType {
