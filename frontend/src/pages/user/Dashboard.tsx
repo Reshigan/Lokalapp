@@ -1,350 +1,185 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
-import { 
-  Wallet, 
-  Wifi, 
-  Zap, 
-  History, 
-  Bell,
-  ChevronRight,
-  ArrowUpRight,
-  ArrowDownLeft,
-  Loader2,
-  BarChart3,
-  Home
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { StatCard, IconBadge, EmptyState } from '@/components/Stat';
+import {
+  Wifi, Zap, Wallet, History, Bell, ChevronRight, ArrowDown, ArrowUp,
+  Receipt, LifeBuoy, BarChart3, Plus,
 } from 'lucide-react';
 
-interface WalletData {
-  balance: number;
-  currency: string;
-  status: string;
-}
+interface WalletData { balance: number; currency: string; status: string }
+interface Transaction { id: string; type: string; amount: number; description: string | null; created_at: string; status: string }
 
-interface Transaction {
-  id: string;
-  type: string;
-  amount: number;
-  description: string | null;
-  created_at: string;
-  status: string;
-}
+const fmt = (n: number) =>
+  new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(n);
+const fmtDate = (s: string) =>
+  new Date(s).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
 
 export default function UserDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [wallet, setWallet] = useState<WalletData | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [txs, setTxs] = useState<Transaction[]>([]);
+  const [outstandingTotal, setOutstandingTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'favorites' | 'all'>('all');
 
   useEffect(() => {
-    loadData();
+    (async () => {
+      const [w, t, inv] = await Promise.all([
+        api.getWallet(),
+        api.getTransactions(1, 5),
+        api.listInvoices({ status: 'ISSUED' }),
+      ]);
+      if (w.data) setWallet(w.data);
+      if (t.data) setTxs(t.data.transactions);
+      if (inv.data) {
+        const total = inv.data.reduce(
+          (s, i) => s + Math.max(0, Number(i.total_amount) - Number(i.amount_paid || 0)),
+          0,
+        );
+        setOutstandingTotal(total);
+      }
+      setLoading(false);
+    })();
   }, []);
 
-  const loadData = async () => {
-    setLoading(true);
-    const [walletRes, txRes] = await Promise.all([
-      api.getWallet(),
-      api.getTransactions(1, 5),
-    ]);
-
-    if (walletRes.data) setWallet(walletRes.data);
-    if (txRes.data) setTransactions(txRes.data.transactions);
-    setLoading(false);
-  };
-
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
-      style: 'currency',
-      currency: 'ZAR',
-      minimumFractionDigits: 2,
-    }).format(amount);
-  };
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-ZA', {
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const serviceCards = [
-    { 
-      icon: Wifi, 
-      title: 'WiFi', 
-      description: 'Buy data vouchers and stay connected',
-      path: '/user/wifi', 
-      gradient: 'from-[#00B894] to-[#00997A]',
-      iconBg: 'bg-white/20'
-    },
-    { 
-      icon: Zap, 
-      title: 'Electricity', 
-      description: 'Purchase prepaid electricity units',
-      path: '/user/electricity', 
-      gradient: 'from-[#FDCB6E] to-[#F39C12]',
-      iconBg: 'bg-white/20'
-    },
-    { 
-      icon: Wallet, 
-      title: 'Savings', 
-      description: 'View your savings and earn rewards',
-      path: '/user/profile', 
-      gradient: 'from-[#00B894] to-[#00CEC9]',
-      iconBg: 'bg-white/20'
-    },
-    {
-      icon: History,
-      title: 'History',
-      description: 'View all your past transactions',
-      path: '/user/history',
-      gradient: 'from-[#E84393] to-[#FD79A8]',
-      iconBg: 'bg-white/20'
-    },
-    {
-      icon: Zap,
-      title: 'Invoices',
-      description: 'Electricity bills and receipts',
-      path: '/user/invoices',
-      gradient: 'from-[#16A085] to-[#1ABC9C]',
-      iconBg: 'bg-white/20'
-    },
-    {
-      icon: History,
-      title: 'Notifications',
-      description: 'Push alerts and message inbox',
-      path: '/notifications',
-      gradient: 'from-[#34495E] to-[#2C3E50]',
-      iconBg: 'bg-white/20'
-    },
-    {
-      icon: Wallet,
-      title: 'Support',
-      description: 'Raise an issue or check ticket status',
-      path: '/support',
-      gradient: 'from-[#0EA5E9] to-[#1D4ED8]',
-      iconBg: 'bg-white/20'
-    },
+  const services = [
+    { icon: Zap,      label: 'Electricity', desc: 'Buy units',         to: '/user/electricity' },
+    { icon: Wifi,     label: 'WiFi',        desc: 'Data vouchers',     to: '/user/wifi' },
+    { icon: Receipt,  label: 'Invoices',    desc: 'Postpaid bills',    to: '/user/invoices' },
+    { icon: History,  label: 'History',     desc: 'All transactions',  to: '/user/history' },
+    { icon: BarChart3, label: 'Analytics',  desc: 'Spend insights',    to: '/user/analytics' },
+    { icon: LifeBuoy, label: 'Support',     desc: 'Get help',          to: '/support' },
   ];
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center"
-        >
-          <Loader2 className="w-10 h-10 animate-spin text-[#00B894] mx-auto" />
-          <p className="text-gray-500 mt-4 text-sm">Loading your wallet...</p>
-        </motion.div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-24">
-      {/* Header */}
-      <motion.div 
-        className="bg-white px-5 pt-6 pb-4"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Home</h1>
-          <div className="flex gap-2">
-            <motion.button 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors"
-            >
-              <Bell className="w-5 h-5" />
-            </motion.button>
-            <motion.div 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="w-10 h-10 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-full flex items-center justify-center text-white font-semibold cursor-pointer"
-              onClick={() => navigate('/user/profile')}
-            >
-              {user?.first_name?.charAt(0) || 'U'}
-            </motion.div>
-          </div>
+    <div className="space-y-6">
+      {/* Greeting */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-ink-muted">Welcome back</p>
+          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
+            {[user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.phone_number}
+          </h1>
         </div>
+        <Button variant="outline" size="icon" onClick={() => navigate('/notifications')} aria-label="Notifications">
+          <Bell className="w-4 h-4" />
+        </Button>
+      </div>
 
-        {/* Balance Section */}
-        <div className="mb-4">
-          <p className="text-gray-500 text-sm mb-1">Total Balance Debit</p>
-          <div className="flex items-baseline gap-2">
-            <motion.span 
-              className="text-4xl font-bold text-gray-900"
-              initial={{ opacity: 0, scale: 0.5 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
-            >
-              {wallet ? formatCurrency(wallet.balance).replace('R', 'R ') : 'R 0.00'}
-            </motion.span>
+      {/* Wallet card — the brand-gradient hero */}
+      <Card className="overflow-hidden border-0 shadow-pop bg-brand-gradient text-white relative">
+        <div className="absolute inset-0 opacity-30 pointer-events-none">
+          <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-accent-400 blur-3xl" />
+        </div>
+        <CardContent className="p-6 md:p-7 relative">
+          <div className="flex items-center justify-between">
+            <span className="pill bg-white/15 text-white">Available balance</span>
+            <span className="text-xs text-white/70">{wallet?.currency || 'ZAR'}</span>
           </div>
-          <p className="text-[#00B894] text-sm mt-1">
-            {wallet ? formatCurrency(wallet.balance) : 'R 0.00'}
+          <p className="text-4xl md:text-5xl font-bold mt-3 tracking-tight">
+            {loading ? '—' : fmt(wallet?.balance || 0)}
           </p>
-        </div>
-
-        {/* Tab Filters */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => setActiveTab('favorites')}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-              activeTab === 'favorites'
-                ? 'bg-gray-900 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            Favorites
-          </button>
-          <button
-            onClick={() => setActiveTab('all')}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-              activeTab === 'all'
-                ? 'bg-gray-900 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            All Objects
-          </button>
-        </div>
-      </motion.div>
-
-      {/* Service Cards */}
-      <div className="px-4 py-4 space-y-3">
-        {serviceCards.map((card, index) => (
-          <motion.div
-            key={card.title}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.1 + index * 0.1 }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => navigate(card.path)}
-            className={`bg-gradient-to-r ${card.gradient} rounded-2xl p-4 cursor-pointer shadow-lg`}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 ${card.iconBg} rounded-xl flex items-center justify-center`}>
-                  <card.icon className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-white text-lg">{card.title}</h3>
-                  <p className="text-white/80 text-sm">{card.description}</p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-white/80" />
-            </div>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Recent Transactions */}
-      <motion.div 
-        className="px-4 mt-2"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.5 }}
-      >
-        <div className="flex justify-between items-center mb-3">
-          <h2 className="text-gray-900 font-semibold">Recent Transactions</h2>
-          <button 
-            onClick={() => navigate('/user/history')}
-            className="text-[#00B894] text-sm font-medium hover:underline"
-          >
-            See All
-          </button>
-        </div>
-        
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          {transactions.length === 0 ? (
-            <div className="p-8 text-center">
-              <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                <History className="w-7 h-7 text-gray-400" />
-              </div>
-              <p className="text-gray-500 text-sm">No transactions yet</p>
-              <p className="text-gray-400 text-xs mt-1">Your activity will appear here</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {transactions.map((tx, index) => (
-                <motion.div 
-                  key={tx.id} 
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: 0.6 + index * 0.1 }}
-                  className="p-4 flex items-center gap-3 hover:bg-gray-50 transition-colors"
-                >
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    tx.amount > 0 
-                      ? 'bg-green-100 text-green-600' 
-                      : 'bg-red-100 text-red-500'
-                  }`}>
-                    {tx.amount > 0 ? (
-                      <ArrowDownLeft className="w-5 h-5" />
-                    ) : (
-                      <ArrowUpRight className="w-5 h-5" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm text-gray-900 truncate">
-                      {tx.description || tx.type}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {formatDate(tx.created_at)}
-                    </p>
-                  </div>
-                  <div className={`font-semibold text-sm ${
-                    tx.amount > 0 ? 'text-green-600' : 'text-gray-900'
-                  }`}>
-                    {tx.amount > 0 ? '+' : ''}{formatCurrency(tx.amount)}
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          )}
-        </div>
-      </motion.div>
-
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200">
-        <div className="px-6 py-3">
-          <div className="flex justify-around items-center max-w-md mx-auto">
-            {[
-              { icon: Home, label: 'Dashboard', path: '/user', active: true },
-              { icon: History, label: 'History', path: '/user/history', active: false },
-              { icon: Wallet, label: 'Payments', path: '/user/topup', active: false },
-              { icon: BarChart3, label: 'Analytics', path: '/user/analytics', active: false },
-            ].map((item) => (
-              <motion.button
-                key={item.label}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => navigate(item.path)}
-                className={`flex flex-col items-center gap-1 px-3 py-1 transition-all ${
-                  item.active 
-                    ? 'text-[#00B894]' 
-                    : 'text-gray-400 hover:text-gray-600'
-                }`}
-              >
-                <item.icon className="w-6 h-6" />
-                <span className={`text-xs ${item.active ? 'font-semibold' : ''}`}>{item.label}</span>
-              </motion.button>
-            ))}
+          <div className="flex flex-wrap gap-2 mt-5">
+            <Button variant="accent" size="sm" onClick={() => navigate('/user/topup')}>
+              <Plus className="w-4 h-4" /> Top up
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="bg-white/10 border-white/30 text-white hover:bg-white/20 hover:text-white"
+              onClick={() => navigate('/user/history')}
+            >
+              <History className="w-4 h-4" /> History
+            </Button>
           </div>
-        </div>
+        </CardContent>
+      </Card>
+
+      {/* Two-up KPI row */}
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard
+          tone="warning"
+          icon={Receipt}
+          label="Outstanding"
+          value={fmt(outstandingTotal)}
+          hint="Unpaid invoices"
+          onClick={() => navigate('/user/invoices')}
+        />
+        <StatCard
+          tone="accent"
+          icon={Wallet}
+          label="Loyalty points"
+          value={user?.loyalty_points ?? 0}
+          hint="Earn 1 pt per R10"
+          onClick={() => navigate('/user/profile')}
+        />
       </div>
+
+      {/* Services */}
+      <section>
+        <h3 className="section-title mb-3">Services</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {services.map((s) => (
+            <button
+              key={s.to}
+              onClick={() => navigate(s.to)}
+              className="card text-left p-4 hover:shadow-pop hover:border-accent-200 transition-all group"
+            >
+              <IconBadge icon={s.icon} tone="brand" />
+              <p className="text-sm font-semibold mt-3">{s.label}</p>
+              <p className="text-xs text-ink-muted mt-0.5">{s.desc}</p>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Recent activity */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="section-title">Recent activity</h3>
+          <button onClick={() => navigate('/user/history')} className="text-xs font-medium text-accent-600 hover:text-accent-700">
+            See all
+          </button>
+        </div>
+        {loading ? (
+          <Card><CardContent className="p-8 text-center text-ink-muted">Loading…</CardContent></Card>
+        ) : txs.length === 0 ? (
+          <EmptyState icon={History} title="No transactions yet" description="Your activity will appear here." />
+        ) : (
+          <Card>
+            <CardContent className="p-0 divide-y divide-surface-border">
+              {txs.map((tx) => {
+                const credit = tx.amount > 0;
+                return (
+                  <div key={tx.id} className="flex items-center gap-3 p-4">
+                    <span
+                      className={
+                        credit
+                          ? 'w-9 h-9 rounded-xl bg-success-soft text-emerald-700 grid place-items-center'
+                          : 'w-9 h-9 rounded-xl bg-surface-subtle text-ink-soft grid place-items-center'
+                      }
+                    >
+                      {credit ? <ArrowDown className="w-4 h-4" /> : <ArrowUp className="w-4 h-4" />}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{tx.description || tx.type}</p>
+                      <p className="text-xs text-ink-muted">{fmtDate(tx.created_at)}</p>
+                    </div>
+                    <p className={credit ? 'text-emerald-600 font-semibold text-sm' : 'text-ink font-semibold text-sm'}>
+                      {credit ? '+' : ''}{fmt(tx.amount)}
+                    </p>
+                    <ChevronRight className="w-4 h-4 text-ink-faint" />
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        )}
+      </section>
     </div>
   );
 }

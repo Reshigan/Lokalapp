@@ -4,9 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { PageHeader } from '@/components/PageHeader';
+import { EmptyState } from '@/components/Stat';
 import { useAuth } from '@/context/AuthContext';
 import api, { SupportTicket } from '@/services/api';
-import { ArrowLeft, Plus, LifeBuoy, Loader2, Inbox } from 'lucide-react';
+import { Plus, LifeBuoy, Loader2, Inbox, ChevronRight } from 'lucide-react';
 
 const CATEGORIES = ['BILLING', 'METER', 'PAYMENT', 'ACCOUNT', 'TECHNICAL', 'OTHER'] as const;
 const PRIORITIES = ['LOW', 'NORMAL', 'HIGH', 'URGENT'] as const;
@@ -20,7 +22,6 @@ export default function SupportPage() {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-
   const [form, setForm] = useState({
     category: 'BILLING' as typeof CATEGORIES[number],
     priority: 'NORMAL' as typeof PRIORITIES[number],
@@ -32,159 +33,137 @@ export default function SupportPage() {
 
   const load = async () => {
     setLoading(true);
-    const params = tab === 'mine'
-      ? { mine_only: true }
-      : { mine_only: false };
-    const r = await api.listTickets(params);
+    const r = await api.listTickets({ mine_only: tab === 'mine' });
     if (r.data) setTickets(r.data);
     setLoading(false);
   };
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [tab]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!form.subject || !form.description) {
-      setError('Subject and description are required');
-      return;
-    }
+    if (!form.subject || !form.description) return setError('Subject and description are required');
     setSubmitting(true);
     const r = await api.createTicket(form);
     setSubmitting(false);
-    if (r.error) {
-      setError(r.error);
-      return;
-    }
+    if (r.error) return setError(r.error);
     setShowForm(false);
     setForm({ ...form, subject: '', description: '' });
     setTab('mine');
     load();
   };
 
-  const statusVariant = (s: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
-    if (s === 'RESOLVED' || s === 'CLOSED') return 'default';
-    if (s === 'OPEN') return 'destructive';
-    return 'secondary';
-  };
+  const statusVariant = (s: string) =>
+    s === 'RESOLVED' || s === 'CLOSED' ? 'success' : s === 'OPEN' ? 'warning' : 'secondary';
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-6">
-      <div className="bg-gradient-to-br from-sky-600 to-blue-700 text-white p-6 rounded-b-[30px]">
-        <div className="flex items-center gap-3 mb-2">
-          <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={() => navigate(-1)}>
-            <ArrowLeft className="w-5 h-5" />
+    <div className="space-y-6">
+      <PageHeader
+        title="Support"
+        description="Raise an issue or check a ticket."
+        actions={
+          <Button onClick={() => setShowForm((v) => !v)}>
+            <Plus className="w-4 h-4" /> {showForm ? 'Cancel' : 'New ticket'}
           </Button>
-          <h1 className="text-xl font-bold">Support</h1>
+        }
+      />
+
+      {isStaff && (
+        <div className="flex items-center gap-1 p-1 bg-surface-subtle rounded-xl w-max">
+          {(['queue', 'mine'] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={
+                tab === t
+                  ? 'px-4 py-1.5 rounded-lg bg-white text-ink shadow-soft font-medium text-sm'
+                  : 'px-4 py-1.5 rounded-lg text-ink-soft hover:text-ink text-sm'
+              }
+            >
+              {t === 'queue' ? 'Queue' : 'My tickets'}
+            </button>
+          ))}
         </div>
-        <p className="text-sky-100 text-sm">Get help, raise an issue or check the status of a ticket.</p>
+      )}
 
-        {isStaff && (
-          <div className="mt-4 flex gap-2 bg-white/10 p-1 rounded-xl w-max">
-            <button
-              className={`px-4 py-1.5 rounded-lg text-sm ${tab === 'queue' ? 'bg-white text-blue-700' : 'text-white'}`}
-              onClick={() => setTab('queue')}
-            >
-              Queue
-            </button>
-            <button
-              className={`px-4 py-1.5 rounded-lg text-sm ${tab === 'mine' ? 'bg-white text-blue-700' : 'text-white'}`}
-              onClick={() => setTab('mine')}
-            >
-              My tickets
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div className="px-4 mt-4 space-y-3">
-        <Button onClick={() => setShowForm(!showForm)} className="w-full bg-blue-700 hover:bg-blue-800 rounded-xl">
-          <Plus className="w-4 h-4 mr-2" /> {showForm ? 'Cancel' : 'New ticket'}
-        </Button>
-
-        {showForm && (
-          <Card className="bg-white border-0 shadow-lg rounded-2xl">
-            <form onSubmit={submit}>
-              <CardContent className="p-4 space-y-3">
-                <div className="grid grid-cols-2 gap-2">
+      {showForm && (
+        <Card>
+          <form onSubmit={submit}>
+            <CardContent className="p-5 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="field-label">Category</label>
                   <select
-                    className="border rounded-md p-2 text-sm"
+                    className="field"
                     value={form.category}
                     onChange={(e) => setForm({ ...form, category: e.target.value as typeof CATEGORIES[number] })}
                   >
                     {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
                   </select>
+                </div>
+                <div>
+                  <label className="field-label">Priority</label>
                   <select
-                    className="border rounded-md p-2 text-sm"
+                    className="field"
                     value={form.priority}
                     onChange={(e) => setForm({ ...form, priority: e.target.value as typeof PRIORITIES[number] })}
                   >
                     {PRIORITIES.map((p) => <option key={p}>{p}</option>)}
                   </select>
                 </div>
-                <Input
-                  placeholder="Subject"
-                  value={form.subject}
-                  onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                />
+              </div>
+              <div>
+                <label className="field-label">Subject</label>
+                <Input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} />
+              </div>
+              <div>
+                <label className="field-label">Description</label>
                 <textarea
-                  className="w-full border rounded-md p-2 text-sm min-h-[120px]"
-                  placeholder="What's the issue? Include account number, invoice number etc. if relevant."
+                  className="field min-h-[120px]"
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  placeholder="Include account number, invoice number, what you've tried…"
                 />
-                {error && <p className="text-sm text-red-600">{error}</p>}
-                <Button type="submit" disabled={submitting} className="w-full bg-blue-700 hover:bg-blue-800 rounded-xl">
-                  {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <LifeBuoy className="w-4 h-4 mr-2" />}
-                  Submit ticket
-                </Button>
-              </CardContent>
-            </form>
-          </Card>
-        )}
-
-        {loading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-700" />
-          </div>
-        ) : tickets.length === 0 ? (
-          <Card className="bg-white border-0 shadow-lg rounded-2xl">
-            <CardContent className="p-6 text-center text-gray-400">
-              <Inbox className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-              <p>No tickets here</p>
+              </div>
+              {error && <p className="text-sm text-red-600">{error}</p>}
+              <Button type="submit" disabled={submitting} className="w-full">
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <LifeBuoy className="w-4 h-4" />}
+                Submit ticket
+              </Button>
             </CardContent>
-          </Card>
-        ) : (
-          tickets.map((t) => (
-            <Card
+          </form>
+        </Card>
+      )}
+
+      {loading ? (
+        <div className="text-center py-12 text-ink-muted">Loading…</div>
+      ) : tickets.length === 0 ? (
+        <EmptyState icon={Inbox} title="No tickets here" description="Raise one with the New ticket button." />
+      ) : (
+        <div className="grid gap-2">
+          {tickets.map((t) => (
+            <button
               key={t.id}
-              className="bg-white border-0 shadow-lg rounded-2xl cursor-pointer"
               onClick={() => navigate(`/support/${t.id}`)}
+              className="card text-left p-4 flex items-center gap-3 hover:shadow-pop hover:border-accent-200 transition-all"
             >
-              <CardContent className="p-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-sm truncate">{t.subject}</p>
-                      <Badge variant={statusVariant(t.status)}>{t.status}</Badge>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {t.reference_number} · {t.category} · {t.priority.toLowerCase()}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Opened by {t.opened_by?.name || '—'}
-                      {t.assigned_to && ` · assigned to ${t.assigned_to.name}`}
-                    </p>
-                  </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-semibold truncate">{t.subject}</p>
+                  <Badge variant={statusVariant(t.status) as any}>{t.status}</Badge>
+                  <Badge variant="secondary">{t.category}</Badge>
                 </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+                <p className="text-xs text-ink-muted mt-1">
+                  {t.reference_number} · {t.priority.toLowerCase()} · {t.opened_by?.name || '—'}
+                  {t.assigned_to && ` · → ${t.assigned_to.name}`}
+                </p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-ink-faint" />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

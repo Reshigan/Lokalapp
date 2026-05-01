@@ -44,6 +44,7 @@ import NotificationsPage from './pages/Notifications';
 import SupportPage from './pages/Support';
 import SupportTicketPage from './pages/SupportTicket';
 import AdminRolesPage from './pages/admin/Roles';
+import { AppShell } from './components/AppShell';
 import { Loader2 } from 'lucide-react';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -51,8 +52,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+      <div className="min-h-screen flex items-center justify-center bg-surface-bg">
+        <Loader2 className="w-8 h-8 animate-spin text-accent-500" />
       </div>
     );
   }
@@ -61,7 +62,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  return <>{children}</>;
+  return <AppShell>{children}</AppShell>;
 }
 
 function AppRoutes() {
@@ -69,8 +70,8 @@ function AppRoutes() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+      <div className="min-h-screen flex items-center justify-center bg-surface-bg">
+        <Loader2 className="w-8 h-8 animate-spin text-accent-500" />
       </div>
     );
   }
@@ -152,7 +153,7 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen">
           <AppRoutes />
         </div>
       </AuthProvider>

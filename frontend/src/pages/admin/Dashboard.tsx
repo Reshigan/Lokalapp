@@ -1,364 +1,84 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
-import { 
-  Users, 
-  UserCheck, 
-  DollarSign,
-  Wallet,
-  LogOut,
-  Loader2,
-  TrendingUp,
-  Wifi,
-  Zap,
-  BarChart3,
-  Settings,
-  Cog
+import { StatCard, IconBadge } from '@/components/Stat';
+import {
+  Users, UserCheck, TrendingUp, Wallet, Settings, ShieldCheck,
+  Building2, BarChart3, FileText, LifeBuoy, Zap,
 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface DashboardStats {
   users: { total: number; new_30_days: number; verified: number };
   agents: { active: number };
   revenue: { total: number; last_30_days: number };
   wallets: { total_balance: number };
+  unsettled_cash?: number;
+  open_support_tickets?: number;
 }
 
-interface RevenueData {
-  daily_revenue: Array<{ date: string; amount: number }>;
-  by_product: { wifi: number; electricity: number; other: number };
-  total: number;
-}
+const fmt = (n: number) => new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', maximumFractionDigits: 0 }).format(n);
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [revenue, setRevenue] = useState<RevenueData | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadData();
+    api.getAdminDashboardStats().then((r) => r.data && setStats(r.data as DashboardStats));
   }, []);
 
-  const loadData = async () => {
-    setLoading(true);
-    const [statsRes, revenueRes] = await Promise.all([
-      api.getAdminDashboardStats(),
-      api.getRevenueReport(30),
-    ]);
-
-    if (statsRes.data) setStats(statsRes.data);
-    if (revenueRes.data) setRevenue(revenueRes.data);
-    setLoading(false);
-  };
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
-      style: 'currency',
-      currency: 'ZAR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
-      </div>
-    );
-  }
+  const tools = [
+    { icon: Users,       label: 'Users',       desc: 'Search & manage',          to: '/admin/users' },
+    { icon: ShieldCheck, label: 'Agents',      desc: 'Tiers, float, status',     to: '/admin/agents' },
+    { icon: Zap,         label: 'Tariffs',     desc: 'Flat / block / TOU',       to: '/admin/tariffs' },
+    { icon: Building2,   label: 'Offices',     desc: 'Community offices',        to: '/admin/community-offices' },
+    { icon: FileText,    label: 'Settlements', desc: 'Confirm cash counts',      to: '/admin/settlements' },
+    { icon: ShieldCheck, label: 'Roles',       desc: 'RBAC grant/revoke',        to: '/admin/roles' },
+    { icon: BarChart3,   label: 'Reports',     desc: 'Revenue & agents',         to: '/admin/reports' },
+    { icon: LifeBuoy,    label: 'Support',     desc: 'Ticket queue',             to: '/support' },
+    { icon: Settings,    label: 'Settings',    desc: 'Gateways & devices',       to: '/admin/settings' },
+  ];
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-20">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-rose-500 to-pink-600 text-white p-6 pb-24 rounded-b-[30px]">
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <p className="text-rose-100 text-sm">Admin Dashboard</p>
-            <h1 className="text-xl font-bold">Lokal Platform</h1>
-          </div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-white hover:bg-white/20"
-            onClick={handleLogout}
-          >
-            <LogOut className="w-5 h-5" />
-          </Button>
-        </div>
-        
-        {/* Revenue Card */}
-        <Card className="bg-white/20 backdrop-blur border-0 text-white shadow-xl">
-          <CardContent className="p-5">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-rose-100 text-sm">Total Revenue (30 days)</p>
-                <p className="text-4xl font-bold tracking-tight">
-                  {formatCurrency(stats?.revenue.last_30_days || 0)}
-                </p>
-              </div>
-              <TrendingUp className="w-10 h-10 text-rose-100" />
-            </div>
-          </CardContent>
-        </Card>
+    <div className="space-y-6">
+      <div>
+        <p className="text-sm text-ink-muted">Admin</p>
+        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
+          Welcome, {[user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.phone_number}
+        </h1>
+        <p className="text-sm text-ink-muted mt-1">Operational overview of the Lokal platform.</p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="px-4 -mt-12">
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <Card className="bg-white border-0 shadow-lg rounded-2xl">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-gray-500 mb-1">
-                <Users className="w-4 h-4" />
-                <span className="text-xs">Total Users</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{stats?.users.total || 0}</p>
-              <p className="text-xs text-emerald-600">+{stats?.users.new_30_days || 0} this month</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-white border-0 shadow-lg rounded-2xl">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-gray-500 mb-1">
-                <UserCheck className="w-4 h-4" />
-                <span className="text-xs">Active Agents</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{stats?.agents.active || 0}</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-white border-0 shadow-lg rounded-2xl">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-gray-500 mb-1">
-                <Wallet className="w-4 h-4" />
-                <span className="text-xs">Wallet Balance</span>
-              </div>
-              <p className="text-xl font-bold text-gray-900">{formatCurrency(stats?.wallets.total_balance || 0)}</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-white border-0 shadow-lg rounded-2xl">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-gray-500 mb-1">
-                <DollarSign className="w-4 h-4" />
-                <span className="text-xs">All-time Revenue</span>
-              </div>
-              <p className="text-xl font-bold text-gray-900">{formatCurrency(stats?.revenue.total || 0)}</p>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard tone="brand"   icon={Users}      label="Users"           value={stats?.users.total ?? '—'} hint={`+${stats?.users.new_30_days ?? 0} this month`} onClick={() => navigate('/admin/users')} />
+        <StatCard tone="success" icon={UserCheck}  label="Verified"        value={stats?.users.verified ?? '—'} hint="KYC complete" />
+        <StatCard tone="accent"  icon={ShieldCheck} label="Active agents"  value={stats?.agents.active ?? '—'} onClick={() => navigate('/admin/agents')} />
+        <StatCard tone="neutral" icon={Wallet}     label="Wallet total"    value={stats ? fmt(stats.wallets.total_balance) : '—'} />
+      </div>
 
-        {/* Revenue Chart */}
-        {revenue && revenue.daily_revenue.length > 0 && (
-          <Card className="mb-4 bg-white border-0 shadow-lg rounded-2xl">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg text-gray-900">Revenue Trend</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={revenue.daily_revenue}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis 
-                      dataKey="date" 
-                      tick={{ fontSize: 10, fill: '#6b7280' }}
-                      tickFormatter={(value) => new Date(value).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}
-                    />
-                    <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} />
-                    <Tooltip 
-                      formatter={(value: number) => formatCurrency(value)}
-                      labelFormatter={(label) => new Date(label).toLocaleDateString('en-ZA')}
-                      contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-                      labelStyle={{ color: '#374151' }}
-                    />
-                    <Line type="monotone" dataKey="amount" stroke="#F43F5E" strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <StatCard tone="brand"   icon={TrendingUp} label="Revenue (30d)" value={stats ? fmt(stats.revenue.last_30_days) : '—'} hint={stats ? `lifetime ${fmt(stats.revenue.total)}` : ''} />
+        <StatCard tone="warning" icon={FileText}   label="Unsettled cash" value={stats ? fmt(stats.unsettled_cash || 0) : '—'} onClick={() => navigate('/admin/settlements')} />
+        <StatCard tone="accent"  icon={LifeBuoy}   label="Open tickets"   value={stats?.open_support_tickets ?? 0} onClick={() => navigate('/support')} />
+      </div>
 
-        {/* Revenue by Product */}
-        {revenue && (
-          <Card className="mb-4 bg-white border-0 shadow-lg rounded-2xl">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg text-gray-900">Revenue by Product</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-teal-100 rounded-xl flex items-center justify-center">
-                      <Wifi className="w-4 h-4 text-teal-600" />
-                    </div>
-                    <span className="text-gray-700">WiFi</span>
-                  </div>
-                  <span className="font-semibold text-gray-900">{formatCurrency(revenue.by_product.wifi)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-amber-100 rounded-xl flex items-center justify-center">
-                      <Zap className="w-4 h-4 text-amber-500" />
-                    </div>
-                    <span className="text-gray-700">Electricity</span>
-                  </div>
-                  <span className="font-semibold text-gray-900">{formatCurrency(revenue.by_product.electricity)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-gray-100 rounded-xl flex items-center justify-center">
-                      <DollarSign className="w-4 h-4 text-gray-500" />
-                    </div>
-                    <span className="text-gray-700">Other</span>
-                  </div>
-                  <span className="font-semibold text-gray-900">{formatCurrency(revenue.by_product.other)}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Quick Links */}
-        <Card className="bg-white border-0 shadow-lg rounded-2xl">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-gray-900">Management</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <div className="grid grid-cols-2 gap-3">
-              <Button 
-                variant="outline"
-                className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
-                onClick={() => navigate('/admin/users')}
-              >
-                <Users className="w-5 h-5" />
-                <span className="text-xs">Users</span>
-              </Button>
-              <Button 
-                variant="outline"
-                className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
-                onClick={() => navigate('/admin/agents')}
-              >
-                <UserCheck className="w-5 h-5" />
-                <span className="text-xs">Agents</span>
-              </Button>
-              <Button 
-                variant="outline"
-                className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
-                onClick={() => navigate('/admin/products')}
-              >
-                <Settings className="w-5 h-5" />
-                <span className="text-xs">Products</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
-                onClick={() => navigate('/admin/reports')}
-              >
-                <BarChart3 className="w-5 h-5" />
-                <span className="text-xs">Reports</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
-                onClick={() => navigate('/admin/tariffs')}
-              >
-                <BarChart3 className="w-5 h-5" />
-                <span className="text-xs">Tariffs</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
-                onClick={() => navigate('/admin/community-offices')}
-              >
-                <BarChart3 className="w-5 h-5" />
-                <span className="text-xs">Offices</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
-                onClick={() => navigate('/admin/settlements')}
-              >
-                <BarChart3 className="w-5 h-5" />
-                <span className="text-xs">Settlements</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
-                onClick={() => navigate('/admin/roles')}
-              >
-                <BarChart3 className="w-5 h-5" />
-                <span className="text-xs">Roles</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-16 flex-col gap-1 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
-                onClick={() => navigate('/support')}
-              >
-                <BarChart3 className="w-5 h-5" />
-                <span className="text-xs">Support</span>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* System Settings */}
-        <Card className="mt-4 bg-white border-0 shadow-lg rounded-2xl">
-          <CardContent className="p-4">
-            <Button 
-              variant="outline"
-              className="w-full h-14 justify-start gap-3 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl"
-              onClick={() => navigate('/admin/settings')}
+      <section>
+        <h3 className="section-title mb-3">Tools</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {tools.map((t) => (
+            <button
+              key={t.to}
+              onClick={() => navigate(t.to)}
+              className="card text-left p-4 hover:shadow-pop hover:border-accent-200 transition-all"
             >
-              <div className="w-10 h-10 bg-rose-100 rounded-xl flex items-center justify-center">
-                <Cog className="w-5 h-5 text-rose-500" />
-              </div>
-              <div className="text-left">
-                <p className="font-medium text-gray-900">System Settings</p>
-                <p className="text-xs text-gray-500">Payment gateways, bank accounts, IoT devices</p>
-              </div>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3 shadow-lg">
-        <div className="flex justify-around items-center max-w-md mx-auto">
-          <button className="flex flex-col items-center gap-1 text-rose-500">
-            <BarChart3 className="w-6 h-6" />
-            <span className="text-xs font-medium">Dashboard</span>
-          </button>
-          <button 
-            className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600"
-            onClick={() => navigate('/admin/users')}
-          >
-            <Users className="w-6 h-6" />
-            <span className="text-xs">Users</span>
-          </button>
-          <button 
-            className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600"
-            onClick={() => navigate('/admin/agents')}
-          >
-            <UserCheck className="w-6 h-6" />
-            <span className="text-xs">Agents</span>
-          </button>
-          <button 
-            className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600"
-            onClick={() => navigate('/admin/products')}
-          >
-            <Settings className="w-6 h-6" />
-            <span className="text-xs">Products</span>
-          </button>
+              <IconBadge icon={t.icon} tone="brand" />
+              <p className="text-sm font-semibold mt-3">{t.label}</p>
+              <p className="text-xs text-ink-muted mt-0.5">{t.desc}</p>
+            </button>
+          ))}
         </div>
-      </div>
+      </section>
     </div>
   );
 }

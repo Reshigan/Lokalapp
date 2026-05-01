@@ -4,20 +4,19 @@ import { uuid } from '../lib/ids.js';
 
 export async function dashboardStats(_request, env) {
   const u = await one(env, 'SELECT COUNT(*) AS c FROM users');
-  const a = await one(env, 'SELECT COUNT(*) AS c FROM agents');
+  const uNew = await one(env, "SELECT COUNT(*) AS c FROM users WHERE created_at >= datetime('now', '-30 days')");
+  const uVer = await one(env, "SELECT COUNT(*) AS c FROM users WHERE kyc_status = 'VERIFIED'");
+  const a = await one(env, "SELECT COUNT(*) AS c FROM agents WHERE status = 'ACTIVE'");
   const w = await one(env, 'SELECT COALESCE(SUM(balance),0) AS bal FROM wallets');
-  const inv = await one(env, 'SELECT COUNT(*) AS c, COALESCE(SUM(total_amount),0) AS billed, COALESCE(SUM(amount_paid),0) AS paid FROM electricity_invoices');
+  const invTot = await one(env, "SELECT COALESCE(SUM(total_amount),0) AS v FROM electricity_invoices");
+  const invMonth = await one(env, "SELECT COALESCE(SUM(total_amount),0) AS v FROM electricity_invoices WHERE issue_date >= datetime('now', '-30 days')");
   const cash = await one(env, "SELECT COALESCE(SUM(amount),0) AS unsettled FROM cash_collections WHERE settled = 0 AND status = 'CONFIRMED'");
   const tickets = await one(env, "SELECT COUNT(*) AS open FROM support_tickets WHERE status NOT IN ('RESOLVED','CLOSED')");
   return json({
-    users: Number(u.c),
-    agents: Number(a.c),
-    wallet_total: Number(w.bal),
-    invoices: {
-      count: Number(inv.c),
-      total_billed: Number(inv.billed),
-      total_paid: Number(inv.paid),
-    },
+    users: { total: Number(u.c), new_30_days: Number(uNew.c), verified: Number(uVer.c) },
+    agents: { active: Number(a.c) },
+    revenue: { total: Number(invTot.v), last_30_days: Number(invMonth.v) },
+    wallets: { total_balance: Number(w.bal) },
     unsettled_cash: Number(cash.unsettled),
     open_support_tickets: Number(tickets.open),
   });

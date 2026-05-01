@@ -1,119 +1,96 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { PageHeader } from '@/components/PageHeader';
+import { StatCard } from '@/components/Stat';
 import api, { Invoice } from '@/services/api';
-import { ArrowLeft, Loader2, FileText } from 'lucide-react';
+import { Loader2, FileText } from 'lucide-react';
+
+const fmt = (n: number) => new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(n);
 
 export default function InvoiceDetailUserPage() {
   const { id = '' } = useParams();
-  const navigate = useNavigate();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
 
   useEffect(() => {
-    (async () => {
-      const r = await api.getInvoice(id);
-      if (r.data) setInvoice(r.data);
-    })();
+    api.getInvoice(id).then((r) => r.data && setInvoice(r.data));
   }, [id]);
 
   if (!invoice) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-green-500" />
-      </div>
-    );
+    return <div className="text-center py-16"><Loader2 className="w-6 h-6 animate-spin mx-auto text-accent-500" /></div>;
   }
 
+  const openReceipt = () => {
+    const base = (import.meta.env.VITE_API_URL as string) || '';
+    const tok = localStorage.getItem('access_token');
+    fetch(`${base}/billing/invoices/${invoice.id}/receipt`, {
+      headers: tok ? { Authorization: `Bearer ${tok}` } : {},
+    })
+      .then((r) => r.text())
+      .then((html) => {
+        const blob = new Blob([html], { type: 'text/html' });
+        window.open(URL.createObjectURL(blob), '_blank');
+      });
+  };
+
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-6">
-      <div className="bg-gradient-to-br from-green-500 to-emerald-600 text-white p-6 rounded-b-[30px]">
-        <div className="flex items-center gap-3 mb-2">
-          <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={() => navigate('/user/invoices')}>
-            <ArrowLeft className="w-5 h-5" />
+    <div className="max-w-3xl mx-auto space-y-6">
+      <PageHeader
+        title={invoice.invoice_number}
+        description={`Period ${new Date(invoice.period_start).toLocaleDateString()} – ${new Date(invoice.period_end).toLocaleDateString()}`}
+        back="/user/invoices"
+        actions={
+          <Button variant="outline" onClick={openReceipt}>
+            <FileText className="w-4 h-4" /> Receipt
           </Button>
-          <h1 className="text-xl font-bold">{invoice.invoice_number}</h1>
-        </div>
-        <div className="bg-white/10 rounded-2xl p-4 mt-4">
-          <p className="text-green-100 text-xs">Total</p>
-          <p className="text-3xl font-bold">R{Number(invoice.total_amount).toFixed(2)}</p>
-          <div className="flex items-center justify-between mt-2 text-xs">
-            <Badge variant={invoice.status === 'PAID' ? 'default' : 'secondary'}>{invoice.status}</Badge>
-            <span className="text-green-100">Due {new Date(invoice.due_date).toLocaleDateString()}</span>
+        }
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <StatCard tone="brand"   label="Total"   value={fmt(invoice.total_amount)} />
+        <StatCard tone="success" label="Paid"    value={fmt(invoice.amount_paid || 0)} />
+        <StatCard tone="warning" label="Status"  value={<Badge variant={invoice.status === 'PAID' ? 'success' : 'warning'}>{invoice.status}</Badge>} hint={`Due ${new Date(invoice.due_date).toLocaleDateString()}`} />
+      </div>
+
+      <Card>
+        <CardContent className="p-5">
+          <h3 className="section-title mb-3">Reading</h3>
+          <div className="grid grid-cols-3 gap-3 text-sm">
+            <Cell label="Previous" value={`${Number(invoice.previous_reading_kwh).toFixed(2)} kWh`} />
+            <Cell label="Current"  value={`${Number(invoice.current_reading_kwh).toFixed(2)} kWh`} />
+            <Cell label="Consumed" value={<span className="font-semibold text-ink">{Number(invoice.kwh_consumed).toFixed(2)} kWh</span>} />
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      <div className="px-4 mt-4 space-y-3">
-        <Card className="bg-white border-0 shadow-lg rounded-2xl">
-          <CardContent className="p-4">
-            <h3 className="font-semibold text-sm mb-2">Period</h3>
-            <p className="text-sm text-gray-700">
-              {new Date(invoice.period_start).toLocaleDateString()} – {new Date(invoice.period_end).toLocaleDateString()}
-            </p>
-            <div className="flex justify-between text-sm mt-3">
-              <div>
-                <p className="text-gray-500 text-xs">Previous</p>
-                <p>{Number(invoice.previous_reading_kwh).toFixed(2)} kWh</p>
-              </div>
-              <div>
-                <p className="text-gray-500 text-xs">Current</p>
-                <p>{Number(invoice.current_reading_kwh).toFixed(2)} kWh</p>
-              </div>
-              <div>
-                <p className="text-gray-500 text-xs">Used</p>
-                <p className="font-semibold">{Number(invoice.kwh_consumed).toFixed(2)} kWh</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Button
-          variant="outline"
-          className="w-full rounded-xl"
-          onClick={() => {
-            const base = (import.meta.env.VITE_API_URL as string) || '';
-            const token = localStorage.getItem('access_token');
-            // Open receipt in a new tab. We pass the bearer token via a fetch
-            // and convert to blob URL because <a target=_blank> can't carry headers.
-            fetch(`${base}/billing/invoices/${invoice.id}/receipt`, {
-              headers: token ? { Authorization: `Bearer ${token}` } : {},
-            })
-              .then((r) => r.text())
-              .then((html) => {
-                const blob = new Blob([html], { type: 'text/html' });
-                window.open(URL.createObjectURL(blob), '_blank');
-              });
-          }}
-        >
-          <FileText className="w-4 h-4 mr-2" /> Open printable receipt
-        </Button>
-
-        <Card className="bg-white border-0 shadow-lg rounded-2xl">
-          <CardContent className="p-4">
-            <h3 className="font-semibold text-sm mb-2">Charges</h3>
-            <ul className="text-sm space-y-1">
-              {invoice.line_items.map((li, i) => (
-                <li key={i} className="flex justify-between">
-                  <span className="text-gray-600 truncate">{li.label}</span>
-                  <span className="text-gray-900">R{Number(li.amount).toFixed(2)}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="border-t mt-2 pt-2 flex justify-between font-semibold">
+      <Card>
+        <CardContent className="p-5">
+          <h3 className="section-title mb-3">Charges</h3>
+          <ul className="text-sm divide-y divide-surface-border">
+            {invoice.line_items.map((li, i) => (
+              <li key={i} className="flex justify-between py-2">
+                <span className="text-ink-soft truncate pr-3">{li.label}</span>
+                <span className="font-medium">{fmt(li.amount)}</span>
+              </li>
+            ))}
+            <li className="flex justify-between py-3 font-semibold border-t-2 border-ink">
               <span>Total</span>
-              <span>R{Number(invoice.total_amount).toFixed(2)}</span>
-            </div>
-            {Number(invoice.amount_paid || 0) > 0 && (
-              <div className="flex justify-between text-xs text-green-700 mt-1">
-                <span>Paid</span>
-                <span>R{Number(invoice.amount_paid).toFixed(2)}</span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+              <span>{fmt(invoice.total_amount)}</span>
+            </li>
+          </ul>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function Cell({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-ink-muted text-xs">{label}</p>
+      <p className="font-medium">{value}</p>
     </div>
   );
 }
