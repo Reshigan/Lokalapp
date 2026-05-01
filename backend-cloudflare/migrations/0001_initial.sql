@@ -402,18 +402,22 @@ CREATE INDEX IF NOT EXISTS idx_messages_ticket ON support_messages(ticket_id);
 
 -- ============ Audit log (used by admin for IT visibility) ============
 
+-- audit_logs may pre-exist with a slightly different column shape (user_id vs
+-- actor_user_id). We only read it, never insert from this worker, so leave the
+-- existing table alone if present. For fresh deploys the legacy shape is fine.
 CREATE TABLE IF NOT EXISTS audit_logs (
   id TEXT PRIMARY KEY,
-  actor_user_id TEXT REFERENCES users(id),
-  action TEXT NOT NULL,                        -- e.g. 'household.create', 'invoice.issue'
+  user_id TEXT REFERENCES users(id),
+  action TEXT NOT NULL,
   entity_type TEXT,
   entity_id TEXT,
-  detail TEXT,                                 -- JSON
-  ip TEXT,
+  old_value TEXT,
+  new_value TEXT,
+  ip_address TEXT,
   user_agent TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_logs(actor_user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
 
 -- ============ Notifications + Push ============

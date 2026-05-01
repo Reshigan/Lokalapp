@@ -39,10 +39,11 @@ export async function listUsers(request, env) {
 }
 
 export async function auditLogs(_request, env) {
+  // user_id is the column name used in remote D1; works for the new schema too.
   const rows = await all(
     env,
     `SELECT al.*, u.phone_number, u.first_name, u.last_name
-     FROM audit_logs al LEFT JOIN users u ON u.id = al.actor_user_id
+     FROM audit_logs al LEFT JOIN users u ON u.id = al.user_id
      ORDER BY al.created_at DESC LIMIT 200`,
   );
   return json(rows);

@@ -1,10 +1,13 @@
 -- Additional tables for admin settings + agent customers (legacy WiFi/electricity sales).
 
--- Agent → customer relationship for the prepaid sales flow.
+-- Agent → customer relationship. Pre-existing remote schema uses customer_id;
+-- new fresh deploys use user_id. The 0004 migration aligns by adding a user_id
+-- column on top of the legacy table when needed.
 CREATE TABLE IF NOT EXISTS agent_customers (
   id TEXT PRIMARY KEY,
   agent_id TEXT NOT NULL REFERENCES agents(id),
-  user_id TEXT NOT NULL REFERENCES users(id),
+  user_id TEXT REFERENCES users(id),
+  customer_id TEXT,                            -- legacy column on remote D1
   customer_phone TEXT NOT NULL,
   customer_name TEXT,
   notes TEXT,
@@ -13,7 +16,6 @@ CREATE TABLE IF NOT EXISTS agent_customers (
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_agent_customers_agent ON agent_customers(agent_id);
-CREATE INDEX IF NOT EXISTS idx_agent_customers_user ON agent_customers(user_id);
 
 -- Commission ledger entries
 CREATE TABLE IF NOT EXISTS agent_commissions (
