@@ -1,9 +1,142 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* --------- Base --------- */
 @layer base {
   :root {
-    --radius: 0.5rem
+    --radius: 14px;
+    color-scheme: light;
+  }
+
+  html, body, #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-surface-bg text-ink antialiased;
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4 {
+    @apply text-ink font-semibold tracking-tight;
+  }
+
+  h1 { @apply text-3xl md:text-4xl; }
+  h2 { @apply text-2xl md:text-3xl; }
+  h3 { @apply text-lg md:text-xl; }
+
+  ::selection {
+    background-color: rgb(45 123 203 / 0.20);
+    color: #0F1738;
+  }
+
+  /* Form controls — sane defaults that still allow shadcn overrides */
+  input, select, textarea, button {
+    font-family: inherit;
+  }
+
+  /* Custom focus ring */
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent-400 ring-offset-2 ring-offset-surface-bg;
+  }
+
+  /* Webkit scrollbar */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: #CBD3E2;
+    border-radius: 999px;
+    border: 2px solid #F5F7FB;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: #A6ADC0; }
+}
+
+/* --------- Components --------- */
+@layer components {
+  .container-narrow { @apply mx-auto w-full max-w-2xl px-4; }
+  .container-wide   { @apply mx-auto w-full max-w-6xl px-4; }
+
+  /* Card */
+  .card {
+    @apply bg-white rounded-2xl shadow-card border border-surface-border;
+  }
+  .card-flat {
+    @apply bg-white rounded-2xl border border-surface-border;
+  }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium
+           transition-all duration-150 disabled:opacity-50 disabled:pointer-events-none
+           select-none;
+  }
+  .btn-primary {
+    @apply btn bg-brand-700 text-white hover:bg-brand-800 active:bg-brand-900 shadow-brand-glow;
+  }
+  .btn-accent {
+    @apply btn bg-accent-500 text-white hover:bg-accent-600 active:bg-accent-700 shadow-accent-glow;
+  }
+  .btn-ghost {
+    @apply btn text-ink-soft hover:bg-surface-subtle hover:text-ink;
+  }
+  .btn-outline {
+    @apply btn border border-surface-border bg-white text-ink hover:bg-surface-subtle;
+  }
+  .btn-danger {
+    @apply btn bg-danger text-white hover:bg-red-600;
+  }
+
+  /* Inputs */
+  .field {
+    @apply w-full rounded-xl border border-surface-border bg-white px-3.5 py-2.5 text-sm text-ink
+           placeholder:text-ink-faint
+           focus:border-accent-400 focus:ring-2 focus:ring-accent-100 focus:outline-none
+           transition-shadow disabled:bg-surface-subtle disabled:text-ink-muted;
+  }
+  .field-label {
+    @apply block text-xs font-medium text-ink-soft mb-1.5;
+  }
+
+  /* Pills / badges */
+  .pill {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  .pill-brand   { @apply pill bg-brand-50 text-brand-700; }
+  .pill-accent  { @apply pill bg-accent-50 text-accent-700; }
+  .pill-success { @apply pill bg-success-soft text-emerald-700; }
+  .pill-warning { @apply pill bg-warning-soft text-amber-700; }
+  .pill-danger  { @apply pill bg-danger-soft text-red-700; }
+  .pill-neutral { @apply pill bg-surface-subtle text-ink-soft; }
+
+  /* Section heading */
+  .section-title {
+    @apply text-xs font-semibold uppercase tracking-wider text-ink-muted;
+  }
+
+  /* Top-of-page chrome (replaces the heavy gradient hero on every page) */
+  .page-header {
+    @apply mb-6;
+  }
+  .page-header h1 {
+    @apply text-2xl font-semibold text-ink;
+  }
+  .page-header p {
+    @apply text-sm text-ink-muted mt-1;
+  }
+
+  /* Hero used on auth + landing only */
+  .hero-brand {
+    @apply bg-brand-gradient text-white;
   }
 }
 
+/* --------- Utilities --------- */
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .grid-stack > * { grid-area: 1 / 1; }
+}

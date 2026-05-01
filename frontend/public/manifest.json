@@ -1,11 +1,11 @@
 {
-  "name": "Lokal Platform",
+  "name": "Lokal",
   "short_name": "Lokal",
-  "description": "Your digital wallet for local services - WiFi, Electricity & more",
+  "description": "Community wallet, prepaid services, and electricity billing.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F8F9FA",
-  "theme_color": "#00B894",
+  "background_color": "#F5F7FB",
+  "theme_color": "#1E2D6E",
   "orientation": "portrait",
   "icons": [
     {
@@ -21,7 +21,5 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["finance", "utilities"],
-  "screenshots": [],
-  "prefer_related_applications": false
+  "categories": ["finance", "utilities"]
 }

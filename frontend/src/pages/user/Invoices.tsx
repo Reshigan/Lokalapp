@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { PageHeader } from '@/components/PageHeader';
+import { StatCard, EmptyState } from '@/components/Stat';
 import api, { Invoice, Household } from '@/services/api';
-import { ArrowLeft, Loader2, Receipt, Home } from 'lucide-react';
+import { Receipt, Home, ChevronRight } from 'lucide-react';
+
+const fmt = (n: number) => new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(n);
 
 export default function InvoicesPage() {
   const navigate = useNavigate();
@@ -21,75 +24,68 @@ export default function InvoicesPage() {
     })();
   }, []);
 
-  const totalDue = invoices.filter((i) => i.status !== 'PAID').reduce((s, i) => s + (Number(i.total_amount) - Number(i.amount_paid || 0)), 0);
+  const totalDue = invoices
+    .filter((i) => i.status !== 'PAID')
+    .reduce((s, i) => s + (Number(i.total_amount) - Number(i.amount_paid || 0)), 0);
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-6">
-      <div className="bg-gradient-to-br from-green-500 to-emerald-600 text-white p-6 rounded-b-[30px]">
-        <div className="flex items-center gap-3 mb-2">
-          <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={() => navigate('/user')}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <h1 className="text-xl font-bold">My invoices</h1>
-        </div>
-        <div className="bg-white/10 rounded-2xl p-4 mt-4">
-          <p className="text-green-100 text-xs">Total outstanding</p>
-          <p className="text-3xl font-bold">R{totalDue.toFixed(2)}</p>
-        </div>
+    <div className="space-y-6">
+      <PageHeader title="My invoices" description="Postpaid electricity bills for your linked households." back="/user" />
+
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard tone="warning" icon={Receipt} label="Total due"   value={fmt(totalDue)} />
+        <StatCard tone="brand"   icon={Home}    label="Households"  value={households.length} />
       </div>
 
-      <div className="px-4 mt-4 space-y-3">
-        {households.length > 0 && (
-          <Card className="bg-white border-0 shadow-lg rounded-2xl">
-            <CardContent className="p-4">
-              <h3 className="font-semibold text-sm mb-2">Connected households</h3>
+      {households.length > 0 && (
+        <Card>
+          <CardContent className="p-5">
+            <h3 className="section-title mb-3">Connected households</h3>
+            <div className="divide-y divide-surface-border">
               {households.map((h) => (
-                <div key={h.id} className="flex justify-between items-center py-1 text-sm">
+                <div key={h.id} className="flex justify-between items-center py-3 text-sm">
                   <span className="flex items-center gap-2">
-                    <Home className="w-4 h-4 text-green-600" />
-                    {h.account_number} · {h.suburb || h.city || '—'}
+                    <Home className="w-4 h-4 text-ink-soft" />
+                    {h.account_number} <span className="text-ink-muted">·</span> {[h.suburb, h.city].filter(Boolean).join(', ') || '—'}
                   </span>
-                  <span className="text-gray-500">R{Number(h.current_balance).toFixed(2)}</span>
+                  <span className={Number(h.current_balance) > 0 ? 'text-amber-700 font-medium' : 'text-ink-muted'}>
+                    {fmt(h.current_balance)}
+                  </span>
                 </div>
               ))}
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-        {loading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="w-8 h-8 animate-spin text-green-500" />
-          </div>
-        ) : invoices.length === 0 ? (
-          <Card className="bg-white border-0 shadow-lg rounded-2xl">
-            <CardContent className="p-6 text-center text-gray-400">
-              <Receipt className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-              <p>No invoices yet</p>
-            </CardContent>
-          </Card>
-        ) : (
-          invoices.map((inv) => (
-            <Card
+      {loading ? (
+        <div className="text-center py-12 text-ink-muted">Loading…</div>
+      ) : invoices.length === 0 ? (
+        <EmptyState icon={Receipt} title="No invoices yet" description="Your electricity bills will appear here." />
+      ) : (
+        <div className="grid gap-2">
+          {invoices.map((inv) => (
+            <button
               key={inv.id}
-              className="bg-white border-0 shadow-lg rounded-2xl cursor-pointer"
               onClick={() => navigate(`/user/invoices/${inv.id}`)}
+              className="card text-left p-4 flex items-center gap-3 hover:shadow-pop hover:border-accent-200 transition-all"
             >
-              <CardContent className="p-4 flex justify-between items-center">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold text-sm">{inv.invoice_number}</p>
-                    <Badge variant={inv.status === 'PAID' ? 'default' : 'secondary'}>{inv.status}</Badge>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {Number(inv.kwh_consumed).toFixed(2)} kWh · due {new Date(inv.due_date).toLocaleDateString()}
-                  </p>
+              <Receipt className="w-5 h-5 text-ink-soft" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold">{inv.invoice_number}</p>
+                  <Badge variant={inv.status === 'PAID' ? 'success' : 'warning'}>{inv.status}</Badge>
                 </div>
-                <p className="text-base font-bold">R{Number(inv.total_amount).toFixed(2)}</p>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+                <p className="text-xs text-ink-muted">
+                  {Number(inv.kwh_consumed).toFixed(2)} kWh · due {new Date(inv.due_date).toLocaleDateString()}
+                </p>
+              </div>
+              <p className="text-base font-semibold">{fmt(inv.total_amount)}</p>
+              <ChevronRight className="w-4 h-4 text-ink-faint" />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

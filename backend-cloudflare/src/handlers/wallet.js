@@ -25,14 +25,23 @@ export async function getWallet(_request, env, currentUser) {
 
 export async function listTransactions(request, env, currentUser) {
   const url = new URL(request.url);
-  const limit = Math.min(200, parseInt(url.searchParams.get('limit') || '50', 10));
+  const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+  const pageSize = Math.min(200, parseInt(url.searchParams.get('page_size') || url.searchParams.get('limit') || '20', 10));
+  const offset = (page - 1) * pageSize;
   const w = await getOrCreateWallet(env, currentUser.id);
   const txs = await all(
     env,
-    'SELECT * FROM transactions WHERE wallet_id = ? ORDER BY created_at DESC LIMIT ?',
-    w.id, limit,
+    'SELECT * FROM transactions WHERE wallet_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
+    w.id, pageSize, offset,
   );
-  return json(txs);
+  const totalRow = await all(env, 'SELECT COUNT(*) AS c FROM transactions WHERE wallet_id = ?', w.id);
+  const total = Number(totalRow?.[0]?.c || 0);
+  return json({
+    transactions: txs,
+    total,
+    page,
+    has_more: offset + txs.length < total,
+  });
 }
 
 export async function topup(request, env, currentUser) {
