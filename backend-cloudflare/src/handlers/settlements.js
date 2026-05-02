@@ -1,7 +1,8 @@
 import { json, readBody, error } from '../lib/http.js';
-import { all, one, run, nowIso } from '../lib/db.js';
+import { all, one, run, batch, nowIso } from '../lib/db.js';
 import { uuid, settlementRef } from '../lib/ids.js';
 import { notify } from '../lib/notify.js';
+import { audit } from '../lib/audit.js';
 
 function settlementPublic(s, office) {
   return {
@@ -22,7 +23,7 @@ function settlementPublic(s, office) {
   };
 }
 
-export async function submitSettlement(request, env, _user, deps) {
+export async function submitSettlement(request, env, currentUser, deps) {
   const body = await readBody(request);
   if (!body.community_office_id || body.declared_amount == null) {
     return error('community_office_id and declared_amount required');
@@ -30,42 +31,61 @@ export async function submitSettlement(request, env, _user, deps) {
   const office = await one(env, 'SELECT * FROM community_offices WHERE id = ? AND is_active = 1', body.community_office_id);
   if (!office) return error('Community office not found', 404);
 
+  // Reject if there's already an open submission from this agent
+  const open = await one(
+    env,
+    `SELECT id FROM agent_settlements WHERE agent_id = ? AND status = 'SUBMITTED'`,
+    deps.agent.id,
+  );
+  if (open) return error('You already have an unconfirmed settlement', 409);
+
   const collections = await all(
     env,
-    `SELECT * FROM cash_collections WHERE agent_id = ? AND settled = 0 AND status = 'CONFIRMED'`,
+    `SELECT id, amount FROM cash_collections
+     WHERE agent_id = ? AND settled = 0 AND status = 'CONFIRMED' AND settlement_id IS NULL`,
     deps.agent.id,
   );
   if (!collections.length) return error('No unsettled cash collections to settle');
 
-  const expected = collections.reduce((s, c) => s + Number(c.amount), 0);
+  const expected = Math.round(collections.reduce((s, c) => s + Number(c.amount), 0) * 100) / 100;
   const declared = Number(body.declared_amount);
-  const id = uuid();
-  await run(
-    env,
-    `INSERT INTO agent_settlements (id, reference_number, agent_id, community_office_id,
-       declared_amount, expected_amount, num_collections, status,
-       agent_confirmed_at, notes, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'SUBMITTED', ?, ?, ?, ?)`,
-    id, settlementRef(), deps.agent.id, office.id,
-    declared, expected, collections.length,
-    nowIso(), body.notes || null, nowIso(), nowIso(),
-  );
+  const settlementId = uuid();
+  const ref = settlementRef();
 
-  // Link collections to this settlement
-  for (const c of collections) {
-    await run(env, 'UPDATE cash_collections SET settlement_id = ? WHERE id = ?', id, c.id);
-  }
+  // Atomic: insert + link in a single batch.
+  await batch(env, [
+    {
+      sql: `INSERT INTO agent_settlements (id, reference_number, agent_id, community_office_id,
+              declared_amount, expected_amount, num_collections, status,
+              agent_confirmed_at, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'SUBMITTED', ?, ?, ?, ?)`,
+      binds: [settlementId, ref, deps.agent.id, office.id,
+              declared, expected, collections.length,
+              nowIso(), body.notes || null, nowIso(), nowIso()],
+    },
+    ...collections.map((c) => ({
+      sql: `UPDATE cash_collections SET settlement_id = ?
+            WHERE id = ? AND agent_id = ? AND settled = 0 AND status = 'CONFIRMED' AND settlement_id IS NULL`,
+      binds: [settlementId, c.id, deps.agent.id],
+    })),
+  ]);
+
+  await audit(env, request, {
+    actor_user_id: currentUser.id, action: 'settlement.submit',
+    entity_type: 'settlement', entity_id: settlementId,
+    new: { reference_number: ref, declared, expected, num_collections: collections.length },
+  });
 
   if (office.manager_user_id) {
     await notify(env, office.manager_user_id, {
       title: `Settlement submitted`,
       body: `${deps.agent.business_name} declared R${declared.toFixed(2)} for ${collections.length} collections.`,
       category: 'SETTLEMENT_SUBMITTED',
-      data: { settlement_id: id },
+      data: { settlement_id: settlementId },
     });
   }
 
-  const created = await one(env, 'SELECT * FROM agent_settlements WHERE id = ?', id);
+  const created = await one(env, 'SELECT * FROM agent_settlements WHERE id = ?', settlementId);
   return json(settlementPublic(created, office), 201);
 }
 
@@ -95,19 +115,38 @@ export async function confirmSettlement(request, env, currentUser, _deps, params
     && Math.abs(confirmedAmount - Number(s.expected_amount)) < 0.005;
   const newStatus = matches ? 'CONFIRMED' : 'DISPUTED';
 
-  await run(
-    env,
-    `UPDATE agent_settlements SET confirmed_amount = ?, office_confirmed_at = ?,
-       office_confirmed_by_user_id = ?, status = ?, notes = COALESCE(notes,'') || ?,
-       updated_at = ? WHERE id = ?`,
-    confirmedAmount, nowIso(), currentUser.id, newStatus,
-    body.notes ? `\n[office] ${body.notes}` : '',
-    nowIso(), s.id,
-  );
-
+  // Atomic: settlement update guarded by current SUBMITTED status, plus
+  // (if matched) mark collections settled in the same batch.
+  const stmts = [
+    {
+      sql: `UPDATE agent_settlements SET confirmed_amount = ?, office_confirmed_at = ?,
+              office_confirmed_by_user_id = ?, status = ?, notes = COALESCE(notes, '') || ?,
+              updated_at = ?
+            WHERE id = ? AND status = 'SUBMITTED'`,
+      binds: [confirmedAmount, nowIso(), currentUser.id, newStatus,
+              body.notes ? `\n[office] ${body.notes}` : '', nowIso(), s.id],
+    },
+  ];
   if (matches) {
-    await run(env, 'UPDATE cash_collections SET settled = 1 WHERE settlement_id = ?', s.id);
+    stmts.push({
+      sql: 'UPDATE cash_collections SET settled = 1 WHERE settlement_id = ?',
+      binds: [s.id],
+    });
   }
+  await batch(env, stmts);
+
+  // Verify the state transition actually happened (concurrent confirm)
+  const verify = await one(env, 'SELECT status FROM agent_settlements WHERE id = ?', s.id);
+  if (verify?.status !== newStatus) {
+    return error('Concurrent update — settlement already changed, please retry', 409);
+  }
+
+  await audit(env, request, {
+    actor_user_id: currentUser.id,
+    action: matches ? 'settlement.confirm' : 'settlement.dispute',
+    entity_type: 'settlement', entity_id: s.id,
+    new: { confirmed_amount: confirmedAmount, declared: Number(s.declared_amount), status: newStatus },
+  });
 
   const agentRow = await one(env, 'SELECT user_id, business_name FROM agents WHERE id = ?', s.agent_id);
   if (agentRow?.user_id) {

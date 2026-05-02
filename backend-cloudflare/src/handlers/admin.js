@@ -1,6 +1,7 @@
 import { json, readBody, error, noContent } from '../lib/http.js';
-import { all, one, run, nowIso } from '../lib/db.js';
-import { uuid } from '../lib/ids.js';
+import { all, one, run, batch, nowIso } from '../lib/db.js';
+import { uuid, transactionRef } from '../lib/ids.js';
+import { audit } from '../lib/audit.js';
 
 export async function dashboardStats(_request, env) {
   const u = await one(env, 'SELECT COUNT(*) AS c FROM users');
@@ -82,49 +83,83 @@ export async function getUser(_request, env, _user, _deps, params) {
   return json({ user: u, wallet, agent });
 }
 
-export async function updateUserStatus(request, env, _user, _deps, params) {
+export async function updateUserStatus(request, env, currentUser, _deps, params) {
   const url = new URL(request.url);
   const status = url.searchParams.get('new_status') || (await readBody(request)).status;
   if (!['ACTIVE', 'SUSPENDED', 'DEACTIVATED'].includes(status)) {
     return error('Invalid status');
   }
-  const r = await run(env, 'UPDATE users SET status = ?, updated_at = ? WHERE id = ?',
+  const old = await one(env, 'SELECT status FROM users WHERE id = ?', params.id);
+  if (!old) return error('User not found', 404);
+  await run(env, 'UPDATE users SET status = ?, updated_at = ? WHERE id = ?',
     status, nowIso(), params.id);
-  if (!r.success) return error('User not found', 404);
+  await audit(env, request, {
+    actor_user_id: currentUser.id, action: 'user.status.update',
+    entity_type: 'user', entity_id: params.id,
+    old: { status: old.status }, new: { status },
+  });
   return json({ message: 'Status updated', status });
 }
 
-export async function updateUserKyc(request, env, _user, _deps, params) {
+export async function updateUserKyc(request, env, currentUser, _deps, params) {
   const url = new URL(request.url);
   const status = url.searchParams.get('new_status') || (await readBody(request)).kyc_status;
   if (!['PENDING', 'VERIFIED', 'REJECTED'].includes(status)) {
     return error('Invalid kyc_status');
   }
-  const r = await run(env, 'UPDATE users SET kyc_status = ?, updated_at = ? WHERE id = ?',
+  const old = await one(env, 'SELECT kyc_status FROM users WHERE id = ?', params.id);
+  if (!old) return error('User not found', 404);
+  await run(env, 'UPDATE users SET kyc_status = ?, updated_at = ? WHERE id = ?',
     status, nowIso(), params.id);
-  if (!r.success) return error('User not found', 404);
+  await audit(env, request, {
+    actor_user_id: currentUser.id, action: 'user.kyc.update',
+    entity_type: 'user', entity_id: params.id,
+    old: { kyc_status: old.kyc_status }, new: { kyc_status: status },
+  });
   return json({ message: 'KYC updated', kyc_status: status });
 }
 
-export async function adjustUserWallet(request, env, _user, _deps, params) {
+export async function adjustUserWallet(request, env, currentUser, _deps, params) {
   const body = await readBody(request);
   const amt = Number(body.amount);
-  if (!Number.isFinite(amt)) return error('amount required');
+  if (!Number.isFinite(amt) || amt === 0) return error('non-zero amount required');
   const wallet = await one(env, 'SELECT * FROM wallets WHERE user_id = ?', params.id);
   if (!wallet) return error('Wallet not found', 404);
   const before = Number(wallet.balance);
   const after = before + amt;
-  await run(env, 'UPDATE wallets SET balance = ?, updated_at = ? WHERE id = ?',
-    after, nowIso(), wallet.id);
-  await run(env,
-    `INSERT INTO transactions (id, wallet_id, type, amount, balance_before, balance_after,
-       reference, status, payment_method, description, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'COMPLETED', 'ADJUST', ?, ?)`,
-    uuid(), wallet.id, amt >= 0 ? 'TOPUP' : 'PURCHASE', amt, before, after,
-    'ADJ' + Math.random().toString(36).slice(2, 10).toUpperCase(),
-    body.note || 'Admin adjustment', nowIso(),
-  );
-  return json({ new_balance: after });
+  if (after < 0) return error('Adjustment would leave a negative balance');
+
+  const ref = transactionRef();
+  await batch(env, [
+    {
+      // Guard with WHERE balance = ? to detect concurrent updates
+      sql: 'UPDATE wallets SET balance = ?, updated_at = ? WHERE id = ? AND balance = ?',
+      binds: [after, nowIso(), wallet.id, before],
+    },
+    {
+      sql: `INSERT INTO transactions (id, wallet_id, type, amount, balance_before, balance_after,
+              reference, status, payment_method, description, extra_data, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'COMPLETED', 'ADJUST', ?, ?, ?)`,
+      binds: [uuid(), wallet.id, amt >= 0 ? 'TOPUP' : 'PURCHASE',
+              amt, before, after, ref,
+              body.note || 'Admin adjustment',
+              JSON.stringify({ kind: 'admin_adjust', actor: currentUser.id, note: body.note || null }),
+              nowIso()],
+    },
+  ]);
+
+  const verify = await one(env, 'SELECT balance FROM wallets WHERE id = ?', wallet.id);
+  if (Number(verify.balance) !== after) {
+    return error('Concurrent update detected, please retry', 409);
+  }
+
+  await audit(env, request, {
+    actor_user_id: currentUser.id, action: 'wallet.adjust',
+    entity_type: 'wallet', entity_id: wallet.id,
+    old: { balance: before }, new: { balance: after, amount: amt, reference: ref },
+  });
+
+  return json({ new_balance: after, reference: ref });
 }
 
 // ---------- Agents ----------
@@ -154,30 +189,85 @@ export async function listAgents(request, env) {
   return json({ agents: rows, total: Number(totalRow?.c || 0), page });
 }
 
-export async function updateAgentTier(request, env, _user, _deps, params) {
+export async function updateAgentTier(request, env, currentUser, _deps, params) {
   const url = new URL(request.url);
   const tier = url.searchParams.get('new_tier') || (await readBody(request)).tier;
   if (!['BRONZE', 'SILVER', 'GOLD', 'PLATINUM'].includes(tier)) return error('Invalid tier');
+  const old = await one(env, 'SELECT tier FROM agents WHERE id = ?', params.id);
+  if (!old) return error('Agent not found', 404);
   await run(env, 'UPDATE agents SET tier = ?, updated_at = ? WHERE id = ?', tier, nowIso(), params.id);
+  await audit(env, request, {
+    actor_user_id: currentUser.id, action: 'agent.tier.update',
+    entity_type: 'agent', entity_id: params.id,
+    old: { tier: old.tier }, new: { tier },
+  });
   return json({ tier });
 }
 
-export async function updateAgentStatus(request, env, _user, _deps, params) {
+export async function updateAgentStatus(request, env, currentUser, _deps, params) {
   const url = new URL(request.url);
   const status = url.searchParams.get('new_status') || (await readBody(request)).status;
   if (!['PENDING', 'ACTIVE', 'SUSPENDED'].includes(status)) return error('Invalid status');
+  const old = await one(env, 'SELECT status FROM agents WHERE id = ?', params.id);
+  if (!old) return error('Agent not found', 404);
   await run(env, 'UPDATE agents SET status = ?, updated_at = ? WHERE id = ?', status, nowIso(), params.id);
+  await audit(env, request, {
+    actor_user_id: currentUser.id, action: 'agent.status.update',
+    entity_type: 'agent', entity_id: params.id,
+    old: { status: old.status }, new: { status },
+  });
   return json({ status });
 }
 
-export async function adjustAgentFloat(request, env, _user, _deps, params) {
+export async function adjustAgentFloat(request, env, currentUser, _deps, params) {
   const body = await readBody(request);
   const amt = Number(body.amount);
-  if (!Number.isFinite(amt)) return error('amount required');
-  await run(env, 'UPDATE agents SET float_balance = float_balance + ?, updated_at = ? WHERE id = ?',
-    amt, nowIso(), params.id);
-  const a = await one(env, 'SELECT float_balance FROM agents WHERE id = ?', params.id);
-  return json({ new_float_balance: Number(a.float_balance) });
+  if (!Number.isFinite(amt) || amt === 0) return error('non-zero amount required');
+
+  const agent = await one(env, 'SELECT user_id, float_balance FROM agents WHERE id = ?', params.id);
+  if (!agent) return error('Agent not found', 404);
+
+  const before = Number(agent.float_balance || 0);
+  const after = before + amt;
+  if (after < 0) return error('Adjustment would leave a negative float');
+
+  // Record on the agent's wallet so it's audit-visible
+  const wallet = await one(env, 'SELECT id, balance FROM wallets WHERE user_id = ?', agent.user_id);
+  const ref = transactionRef();
+
+  const stmts = [
+    {
+      sql: 'UPDATE agents SET float_balance = ?, updated_at = ? WHERE id = ? AND float_balance = ?',
+      binds: [after, nowIso(), params.id, before],
+    },
+  ];
+  if (wallet) {
+    stmts.push({
+      sql: `INSERT INTO transactions (id, wallet_id, agent_id, type, amount, balance_before, balance_after,
+              reference, status, payment_method, description, extra_data, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'COMPLETED', 'ADJUST', ?, ?, ?)`,
+      binds: [uuid(), wallet.id, params.id,
+              amt >= 0 ? 'TOPUP' : 'PURCHASE', 0,
+              Number(wallet.balance), Number(wallet.balance), ref,
+              body.note || `Admin float adjust R${amt.toFixed(2)}`,
+              JSON.stringify({ kind: 'admin_float_adjust', actor: currentUser.id, amount: amt, new_float: after }),
+              nowIso()],
+    });
+  }
+  await batch(env, stmts);
+
+  const verify = await one(env, 'SELECT float_balance FROM agents WHERE id = ?', params.id);
+  if (Number(verify.float_balance) !== after) {
+    return error('Concurrent update detected, please retry', 409);
+  }
+
+  await audit(env, request, {
+    actor_user_id: currentUser.id, action: 'agent.float.adjust',
+    entity_type: 'agent', entity_id: params.id,
+    old: { float_balance: before }, new: { float_balance: after, amount: amt, reference: ref },
+  });
+
+  return json({ new_float_balance: after, reference: ref });
 }
 
 // ---------- Products (admin CRUD) ----------
@@ -366,6 +456,182 @@ export const createIotDevice = genericCreateHandler('iot_devices',
 export const updateIotDevice = genericUpdateHandler('iot_devices',
   ['device_id', 'device_type', 'location', 'status', 'meter_id']);
 export const deleteIotDevice = genericDeleteHandler('iot_devices');
+
+// ---------- Reversals ----------
+
+/** Admin cancels an unpaid invoice. Reverses the household balance accrual. */
+export async function cancelInvoice(request, env, currentUser, _deps, params) {
+  const inv = await one(env, 'SELECT * FROM electricity_invoices WHERE id = ?', params.id);
+  if (!inv) return error('Invoice not found', 404);
+  if (inv.status === 'PAID') return error('Cannot cancel a paid invoice — issue a refund instead');
+  if (inv.status === 'CANCELLED') return error('Invoice already cancelled');
+
+  await batch(env, [
+    {
+      sql: `UPDATE electricity_invoices SET status = 'CANCELLED', updated_at = ?
+            WHERE id = ? AND status NOT IN ('PAID', 'CANCELLED')`,
+      binds: [nowIso(), inv.id],
+    },
+    {
+      // Subtract the unpaid portion from the household's outstanding balance
+      sql: 'UPDATE households SET current_balance = current_balance - ?, updated_at = ? WHERE id = ?',
+      binds: [Number(inv.total_amount) - Number(inv.amount_paid || 0), nowIso(), inv.household_id],
+    },
+    // Void any pending collection on this invoice
+    {
+      sql: `UPDATE cash_collections SET status = 'VOID' WHERE invoice_id = ? AND status = 'PENDING_HOUSEHOLD_CONFIRM'`,
+      binds: [inv.id],
+    },
+  ]);
+
+  await audit(env, request, {
+    actor_user_id: currentUser.id, action: 'invoice.cancel',
+    entity_type: 'invoice', entity_id: inv.id,
+    old: { status: inv.status }, new: { status: 'CANCELLED', reason: (await readBody(request))?.reason || null },
+  });
+
+  return json({ ok: true });
+}
+
+/** Admin voids a pending or confirmed collection. Reverses the invoice + household side-effects. */
+export async function voidCollection(request, env, currentUser, _deps, params) {
+  const body = await readBody(request);
+  const c = await one(env, 'SELECT * FROM cash_collections WHERE id = ?', params.id);
+  if (!c) return error('Collection not found', 404);
+  if (c.status === 'VOID') return error('Already void');
+  if (c.settled === 1) return error('Settled collections must be reversed via the settlement, not voided here');
+
+  const inv = await one(env, 'SELECT * FROM electricity_invoices WHERE id = ?', c.invoice_id);
+
+  const stmts = [
+    {
+      sql: `UPDATE cash_collections SET status = 'VOID', notes = COALESCE(notes,'') || ? WHERE id = ?`,
+      binds: [`\n[void] ${body.reason || 'admin'}`, c.id],
+    },
+  ];
+  if (c.status === 'CONFIRMED' && inv) {
+    // Reverse the payment
+    const newPaid = Math.max(0, Number(inv.amount_paid || 0) - Number(c.amount));
+    const newStatus = newPaid >= Number(inv.total_amount) ? 'PAID' : 'ISSUED';
+    stmts.push({
+      sql: 'UPDATE electricity_invoices SET amount_paid = ?, status = ?, updated_at = ? WHERE id = ?',
+      binds: [newPaid, newStatus, nowIso(), inv.id],
+    });
+    stmts.push({
+      sql: 'UPDATE households SET current_balance = current_balance + ?, updated_at = ? WHERE id = ?',
+      binds: [Number(c.amount), nowIso(), c.household_id],
+    });
+  }
+  await batch(env, stmts);
+
+  await audit(env, request, {
+    actor_user_id: currentUser.id, action: 'collection.void',
+    entity_type: 'cash_collection', entity_id: c.id,
+    old: { status: c.status }, new: { status: 'VOID', reason: body.reason || null },
+  });
+
+  return json({ ok: true });
+}
+
+/** Refund a wallet transaction by booking the reverse entry. */
+export async function refundTransaction(request, env, currentUser, _deps, params) {
+  const body = await readBody(request);
+  const tx = await one(env, 'SELECT * FROM transactions WHERE id = ?', params.id);
+  if (!tx) return error('Transaction not found', 404);
+  if (tx.status !== 'COMPLETED') return error(`Transaction is ${tx.status}`);
+  if (tx.type === 'REFUND') return error('Already a refund');
+
+  const dup = await one(
+    env,
+    "SELECT id FROM transactions WHERE extra_data LIKE ? AND type = 'REFUND'",
+    `%"refund_of":"${tx.id}"%`,
+  );
+  if (dup) return error('Already refunded', 409);
+
+  const amount = -Number(tx.amount); // reverse the sign
+  const wallet = await one(env, 'SELECT balance FROM wallets WHERE id = ?', tx.wallet_id);
+  const before = Number(wallet?.balance || 0);
+  const after = before + amount;
+  if (after < 0) return error('Refund would leave wallet negative');
+
+  const ref = transactionRef();
+  await batch(env, [
+    {
+      sql: 'UPDATE wallets SET balance = ?, updated_at = ? WHERE id = ? AND balance = ?',
+      binds: [after, nowIso(), tx.wallet_id, before],
+    },
+    {
+      sql: `INSERT INTO transactions (id, wallet_id, agent_id, type, amount, balance_before, balance_after,
+              reference, status, payment_method, description, extra_data, created_at)
+            VALUES (?, ?, ?, 'REFUND', ?, ?, ?, ?, 'COMPLETED', ?, ?, ?, ?)`,
+      binds: [uuid(), tx.wallet_id, tx.agent_id || null,
+              amount, before, after, ref,
+              tx.payment_method || 'WALLET',
+              `Refund of ${tx.reference} — ${body.reason || 'admin'}`,
+              JSON.stringify({ refund_of: tx.id, reason: body.reason || null, actor: currentUser.id }),
+              nowIso()],
+    },
+    {
+      sql: "UPDATE transactions SET status = 'REVERSED', updated_at = ? WHERE id = ?",
+      binds: [nowIso(), tx.id],
+    },
+  ]);
+
+  await audit(env, request, {
+    actor_user_id: currentUser.id, action: 'transaction.refund',
+    entity_type: 'transaction', entity_id: tx.id,
+    new: { reference: ref, amount, reason: body.reason || null },
+  });
+
+  return json({ ok: true, reference: ref, new_balance: after });
+}
+
+// ---------- Reconciliation ----------
+
+export async function reconciliation(_request, env) {
+  const outstanding = await one(env, `
+    SELECT COALESCE(SUM(total_amount - amount_paid), 0) AS v, COUNT(*) AS c
+    FROM electricity_invoices
+    WHERE status IN ('ISSUED', 'OVERDUE', 'PARTIAL')`);
+  const householdBalances = await one(env, `
+    SELECT COALESCE(SUM(current_balance), 0) AS v
+    FROM households WHERE status = 'ACTIVE'`);
+  const cashOnHand = await one(env, `
+    SELECT COALESCE(SUM(amount), 0) AS v, COUNT(*) AS c
+    FROM cash_collections
+    WHERE settled = 0 AND status = 'CONFIRMED'`);
+  const settledToday = await one(env, `
+    SELECT COALESCE(SUM(confirmed_amount), 0) AS v, COUNT(*) AS c
+    FROM agent_settlements
+    WHERE status = 'CONFIRMED' AND date(office_confirmed_at) = date('now')`);
+  const disputed = await one(env, `
+    SELECT COUNT(*) AS c FROM agent_settlements WHERE status = 'DISPUTED'`);
+  const submittedSettlements = await one(env, `
+    SELECT COALESCE(SUM(declared_amount), 0) AS v, COUNT(*) AS c
+    FROM agent_settlements WHERE status = 'SUBMITTED'`);
+  const agentFloatTotal = await one(env, `
+    SELECT COALESCE(SUM(float_balance), 0) AS v FROM agents WHERE status = 'ACTIVE'`);
+  const walletTotal = await one(env, `SELECT COALESCE(SUM(balance), 0) AS v FROM wallets`);
+  const commissionTotal = await one(env, `
+    SELECT COALESCE(SUM(commission_balance), 0) AS v FROM agents`);
+
+  // Sanity check: invoice outstanding should ≈ household current_balance
+  const drift = Number(outstanding.v) - Number(householdBalances.v);
+
+  return json({
+    outstanding_invoices: { amount: Number(outstanding.v), count: Number(outstanding.c) },
+    household_balances:   { amount: Number(householdBalances.v) },
+    drift_invoices_vs_household: drift,
+    cash_on_hand_unsettled: { amount: Number(cashOnHand.v), count: Number(cashOnHand.c) },
+    settlements_pending:  { amount: Number(submittedSettlements.v), count: Number(submittedSettlements.c) },
+    settled_today:        { amount: Number(settledToday.v), count: Number(settledToday.c) },
+    disputed_settlements: { count: Number(disputed.c) },
+    agent_float_total:    Number(agentFloatTotal.v),
+    agent_commission_total: Number(commissionTotal.v),
+    wallet_total:         Number(walletTotal.v),
+    generated_at: nowIso(),
+  });
+}
 
 // ---------- Referrals ----------
 
