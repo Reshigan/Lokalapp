@@ -281,6 +281,11 @@ export async function processTransaction(request, env, _user, deps) {
   const customer = await one(env, 'SELECT * FROM users WHERE phone_number = ?', phone);
   if (!customer) return error('Customer not found', 404);
 
+  // Anti-fraud: agents can't sell to themselves and earn commission on their own purchase.
+  if (customer.id === deps.agent.user_id) {
+    return error('You cannot process your own purchases through your agent account', 403);
+  }
+
   let pkg = null;
   if (body.product_type === 'WIFI') {
     pkg = await one(env, 'SELECT * FROM wifi_packages WHERE id = ? AND is_active = 1', body.package_id);

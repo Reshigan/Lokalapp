@@ -147,7 +147,12 @@ export async function requireUser(env, request) {
   return user;
 }
 
-/** Get the active role names for a user, derived from user_roles + agents + community_offices. */
+/** Get the active role names for a user, derived from user_roles + agents + community_offices.
+ *
+ * Strict: a user is ADMIN only via an explicit `users.is_admin = 1` flag OR an
+ * un-revoked `user_roles` row with role = 'ADMIN'. The previous email-contains-"admin"
+ * and any-KYC-verified-user fallbacks have been removed.
+ */
 export async function getRoles(env, userId) {
   const { all } = await import('./db.js');
   const roles = new Set(['USER']);
@@ -161,9 +166,8 @@ export async function getRoles(env, userId) {
   if (agent.length) roles.add('AGENT');
   const officeMgr = await all(env, 'SELECT id FROM community_offices WHERE manager_user_id = ?', userId);
   if (officeMgr.length) roles.add('OFFICE_MANAGER');
-  // Legacy: is_admin flag implies ADMIN
-  const u = await one(env, 'SELECT is_admin, kyc_status, email FROM users WHERE id = ?', userId);
-  if (u?.is_admin) roles.add('ADMIN');
+  const u = await one(env, 'SELECT is_admin FROM users WHERE id = ?', userId);
+  if (u?.is_admin === 1) roles.add('ADMIN');
   return Array.from(roles);
 }
 

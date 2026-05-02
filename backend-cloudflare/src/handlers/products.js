@@ -34,6 +34,14 @@ export async function purchaseWifi(request, env, currentUser) {
   const price = Number(pkg.price);
   const before = Number(wallet.balance);
   if (before < price) return error('Insufficient balance');
+
+  // Daily/monthly spend limit check
+  if (Number(wallet.daily_limit) > 0 && Number(wallet.daily_spent || 0) + price > Number(wallet.daily_limit)) {
+    return error(`Daily spend limit exceeded (R${Number(wallet.daily_limit).toFixed(2)})`, 403);
+  }
+  if (Number(wallet.monthly_limit) > 0 && Number(wallet.monthly_spent || 0) + price > Number(wallet.monthly_limit)) {
+    return error(`Monthly spend limit exceeded (R${Number(wallet.monthly_limit).toFixed(2)})`, 403);
+  }
   const after = before - price;
 
   const txId = uuid();
@@ -137,6 +145,14 @@ export async function purchaseElectricity(request, env, currentUser) {
   const price = Number(pkg.price);
   const before = Number(wallet.balance);
   if (before < price) return error('Insufficient balance');
+
+  if (Number(wallet.daily_limit) > 0 && Number(wallet.daily_spent || 0) + price > Number(wallet.daily_limit)) {
+    return error(`Daily spend limit exceeded (R${Number(wallet.daily_limit).toFixed(2)})`, 403);
+  }
+  if (Number(wallet.monthly_limit) > 0 && Number(wallet.monthly_spent || 0) + price > Number(wallet.monthly_limit)) {
+    return error(`Monthly spend limit exceeded (R${Number(wallet.monthly_limit).toFixed(2)})`, 403);
+  }
+
   const after = before - price;
   const kwh = Number(pkg.kwh_amount || 0);
   const newKwh = Number(meter.kwh_balance || 0) + kwh;

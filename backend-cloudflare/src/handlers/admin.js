@@ -278,13 +278,18 @@ export async function listAdminWifi(_request, env) {
 
 export async function createAdminWifi(request, env) {
   const b = await readBody(request);
+  if (!b.name) return error('name required');
+  const price = Number(b.price);
+  if (!(Number.isFinite(price) && price >= 0)) return error('price must be ≥ 0');
+  if (Number(b.data_limit_mb || 0) < 0) return error('data_limit_mb must be ≥ 0');
+  if (Number(b.validity_hours || 0) < 0) return error('validity_hours must be ≥ 0');
   const id = uuid();
   await run(env,
     `INSERT INTO wifi_packages (id, name, description, price, data_limit_mb, validity_hours, is_active, sort_order, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    id, b.name, b.description || null, Number(b.price),
+    id, b.name, b.description || null, price,
     Number(b.data_limit_mb || 0), Number(b.validity_hours || 0),
-    b.is_active ? 1 : 1, Number(b.sort_order || 0), nowIso(),
+    b.is_active === 0 ? 0 : 1, Number(b.sort_order || 0), nowIso(),
   );
   return json(await one(env, 'SELECT * FROM wifi_packages WHERE id = ?', id), 201);
 }
@@ -308,11 +313,16 @@ export async function listAdminElectricity(_request, env) {
 
 export async function createAdminElectricity(request, env) {
   const b = await readBody(request);
+  if (!b.name) return error('name required');
+  const price = Number(b.price);
+  if (!(Number.isFinite(price) && price >= 0)) return error('price must be ≥ 0');
+  if (Number(b.kwh_amount || 0) < 0) return error('kwh_amount must be ≥ 0');
+  if (Number(b.validity_days || 0) < 0) return error('validity_days must be ≥ 0');
   const id = uuid();
   await run(env,
     `INSERT INTO electricity_packages (id, name, description, price, package_type, kwh_amount, validity_days, is_active, sort_order, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    id, b.name, b.description || null, Number(b.price),
+    id, b.name, b.description || null, price,
     b.package_type || 'UNITS', Number(b.kwh_amount || 0), Number(b.validity_days || 0),
     1, Number(b.sort_order || 0), nowIso(),
   );
