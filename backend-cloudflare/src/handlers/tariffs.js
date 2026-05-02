@@ -60,6 +60,26 @@ export async function createTariff(request, env) {
     return error('time_bands required for TIME_OF_USE');
   }
 
+  // Anti-fraud: all rates and fees must be non-negative. Negative rates would
+  // turn invoices into credits to the household.
+  const nonNeg = (v) => v == null || (Number.isFinite(Number(v)) && Number(v) >= 0);
+  if (!nonNeg(body.flat_rate_per_kwh)) return error('flat_rate_per_kwh must be ≥ 0');
+  if (!nonNeg(body.service_fee))       return error('service_fee must be ≥ 0');
+  for (const b of body.blocks || []) {
+    if (!nonNeg(b.rate_per_kwh)) return error('block rate_per_kwh must be ≥ 0');
+    if (!nonNeg(b.from_kwh) || !nonNeg(b.to_kwh)) return error('block kwh ranges must be ≥ 0');
+    if (b.to_kwh != null && Number(b.to_kwh) <= Number(b.from_kwh)) {
+      return error('block to_kwh must be greater than from_kwh');
+    }
+  }
+  for (const b of body.time_bands || []) {
+    if (!nonNeg(b.rate_per_kwh)) return error('band rate_per_kwh must be ≥ 0');
+    if (!Number.isInteger(b.start_hour) || b.start_hour < 0 || b.start_hour > 23 ||
+        !Number.isInteger(b.end_hour)   || b.end_hour   < 0 || b.end_hour   > 23) {
+      return error('time band hours must be integers in [0, 23]');
+    }
+  }
+
   const id = uuid();
   const stmts = [{
     sql: `INSERT INTO tariff_plans (id, name, description, type, billing_period,

@@ -48,6 +48,19 @@ export async function captureReading(request, env, currentUser, deps) {
   if (!household) return error('Household not found', 404);
   if (household.status !== 'ACTIVE') return error(`Household status is ${household.status}`);
 
+  // Authorization: only the household's registered agent can capture readings.
+  if (household.registered_by_agent_id && household.registered_by_agent_id !== deps.agent.id) {
+    return error('Not authorised — this household is registered to another agent', 403);
+  }
+
+  // Block reading capture on flagged meters.
+  if (household.meter_id) {
+    const meter = await one(env, 'SELECT status FROM electricity_meters WHERE id = ?', household.meter_id);
+    if (meter && (meter.status === 'TAMPERED' || meter.status === 'OFFLINE')) {
+      return error(`Meter is ${meter.status} — readings cannot be captured`, 409);
+    }
+  }
+
   const tariff = await one(env, 'SELECT * FROM tariff_plans WHERE id = ?', household.tariff_id);
   if (!tariff) return error('Tariff not found');
 
@@ -56,8 +69,16 @@ export async function captureReading(request, env, currentUser, deps) {
 
   const prev = Number(household.last_reading_kwh || 0);
   const curr = Number(body.current_reading_kwh);
+  if (!Number.isFinite(curr) || curr < 0) return error('current_reading_kwh must be a non-negative number');
   if (curr < prev) return error(`Current reading ${curr} less than previous ${prev}`);
   const consumed = curr - prev;
+
+  // Sanity bound: a single reading shouldn't be more than the configurable max.
+  // Default 100,000 kWh per period — ~3 GWh/year, ridiculous for a household.
+  const maxPerReading = Number(env.MAX_KWH_PER_READING || 100_000);
+  if (consumed > maxPerReading) {
+    return error(`Reading delta ${consumed.toFixed(2)} kWh exceeds the per-reading cap of ${maxPerReading}. Contact support.`, 400);
+  }
 
   const readingId = uuid();
 
@@ -292,6 +313,22 @@ export async function createCollection(request, env, currentUser, deps) {
   if (invoice.status === 'PAID') return error('Invoice already paid');
   if (invoice.status === 'CANCELLED') return error('Invoice cancelled');
 
+  // Authorization: only the issuing agent OR an agent who registered the household
+  // can take cash for it. Prevents random agents grief-locking invoices with
+  // pending collections.
+  const household = await one(
+    env,
+    'SELECT registered_by_agent_id FROM households WHERE id = ?',
+    invoice.household_id,
+  );
+  const allowed = (
+    invoice.issued_by_agent_id === deps.agent.id ||
+    household?.registered_by_agent_id === deps.agent.id
+  );
+  if (!allowed) {
+    return error('Not authorised to collect cash for this household', 403);
+  }
+
   const outstanding = Number(invoice.total_amount) - Number(invoice.amount_paid || 0);
   const amount = Number(body.amount);
   if (Math.abs(amount - outstanding) > 0.005) {
@@ -321,9 +358,9 @@ export async function createCollection(request, env, currentUser, deps) {
     nowIso(),
   );
 
-  const household = await one(env, 'SELECT * FROM households WHERE id = ?', invoice.household_id);
-  if (household.user_id) {
-    await notify(env, household.user_id, {
+  const householdRow = await one(env, 'SELECT user_id FROM households WHERE id = ?', invoice.household_id);
+  if (householdRow?.user_id) {
+    await notify(env, householdRow.user_id, {
       title: 'Confirm cash payment',
       body: `Confirm R${amount.toFixed(2)} cash for invoice ${invoice.invoice_number}. Code: ${code}`,
       category: 'PAYMENT_CONFIRM_REQUEST',

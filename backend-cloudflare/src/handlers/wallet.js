@@ -19,8 +19,53 @@ async function ensureWallet(env, userId) {
       id, userId, nowIso(), nowIso(),
     );
     w = await one(env, 'SELECT * FROM wallets WHERE id = ?', id);
+  } else {
+    // Reset spent counters at day / month boundaries. We track the last reset
+    // via the columns last_daily_reset / last_monthly_reset where present.
+    const today = new Date().toISOString().slice(0, 10);
+    const month = today.slice(0, 7);
+    let needDaily = false, needMonthly = false;
+    if (w.last_daily_reset !== undefined) {
+      if (!w.last_daily_reset || String(w.last_daily_reset).slice(0, 10) !== today) needDaily = true;
+    } else if (Number(w.daily_spent || 0) > 0) {
+      // No tracking column — fall back to "always reset on a new wallet read"
+      needDaily = false;
+    }
+    if (w.last_monthly_reset !== undefined) {
+      if (!w.last_monthly_reset || String(w.last_monthly_reset).slice(0, 7) !== month) needMonthly = true;
+    }
+    if (needDaily || needMonthly) {
+      const sets = [];
+      const binds = [];
+      if (needDaily) {
+        sets.push('daily_spent = 0');
+        if (w.last_daily_reset !== undefined) { sets.push('last_daily_reset = ?'); binds.push(nowIso()); }
+      }
+      if (needMonthly) {
+        sets.push('monthly_spent = 0');
+        if (w.last_monthly_reset !== undefined) { sets.push('last_monthly_reset = ?'); binds.push(nowIso()); }
+      }
+      if (sets.length) {
+        binds.push(w.id);
+        await run(env, `UPDATE wallets SET ${sets.join(', ')} WHERE id = ?`, ...binds);
+        w = await one(env, 'SELECT * FROM wallets WHERE id = ?', w.id);
+      }
+    }
   }
   return w;
+}
+
+/** Ensure a debit wouldn't exceed the wallet's daily/monthly spend limits. */
+function checkLimits(wallet, amount) {
+  const dailySpent = Number(wallet.daily_spent || 0) + amount;
+  const monthlySpent = Number(wallet.monthly_spent || 0) + amount;
+  if (Number(wallet.daily_limit) > 0 && dailySpent > Number(wallet.daily_limit)) {
+    return `Daily spend limit exceeded (R${Number(wallet.daily_limit).toFixed(2)})`;
+  }
+  if (Number(wallet.monthly_limit) > 0 && monthlySpent > Number(wallet.monthly_limit)) {
+    return `Monthly spend limit exceeded (R${Number(wallet.monthly_limit).toFixed(2)})`;
+  }
+  return null;
 }
 
 export async function getWallet(_request, env, currentUser) {
@@ -128,6 +173,9 @@ export async function transfer(request, env, currentUser) {
 
   const sender = await ensureWallet(env, currentUser.id);
   const recipientWallet = await ensureWallet(env, recipient.id);
+
+  const limitErr = checkLimits(sender, amount);
+  if (limitErr) return error(limitErr, 403);
 
   const sBefore = Number(sender.balance);
   if (sBefore < amount) return error('Insufficient balance');

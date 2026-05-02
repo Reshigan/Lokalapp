@@ -6,9 +6,21 @@ import { uuid, otp as genOtp, referralCode } from '../lib/ids.js';
 import {
   hashPin, verifyPin, issueTokens, signJwt, verifyJwt,
 } from '../lib/auth.js';
+import { checkRateLimit } from '../lib/ratelimit.js';
 
 const OTP_EXPIRY_SECONDS = 5 * 60;
+const OTP_MAX_VERIFY_ATTEMPTS = 5;
 const PHONE_RE = /^\+27[0-9]{9}$/;
+
+/**
+ * Whether to expose the OTP code in the API response.
+ * - Default: NO (production safety)
+ * - Set DEV_MODE=true on the worker to enable for local/QA only.
+ * Setting SMS_PROVIDER no longer disables this — that footgun was bait.
+ */
+function shouldExposeDebugOtp(env) {
+  return String(env?.DEV_MODE || '').toLowerCase() === 'true';
+}
 
 function normalizePhone(p) {
   if (!p) return '';
@@ -42,6 +54,18 @@ export async function requestOtp(request, env) {
   if (!PHONE_RE.test(phone)) {
     return error('Invalid phone number (must be +27XXXXXXXXX)');
   }
+
+  // Rate limit: max 5 OTP requests per phone per hour, plus a soft per-IP guard.
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const phoneRl = await checkRateLimit(env, 'otp_request_phone', phone, { max: 5, windowSec: 3600 });
+  if (!phoneRl.ok) {
+    return error(`Too many OTP requests. Try again in ${phoneRl.retryAfter}s`, 429);
+  }
+  const ipRl = await checkRateLimit(env, 'otp_request_ip', ip, { max: 30, windowSec: 3600 });
+  if (!ipRl.ok) {
+    return error(`Too many OTP requests from this network. Try again in ${ipRl.retryAfter}s`, 429);
+  }
+
   const code = genOtp();
   const id = uuid();
   const expiresAt = new Date(Date.now() + OTP_EXPIRY_SECONDS * 1000).toISOString();
@@ -51,12 +75,13 @@ export async function requestOtp(request, env) {
      VALUES (?, ?, ?, 0, ?, 0, ?)`,
     id, phone, code, expiresAt, nowIso(),
   );
-  // TODO: integrate with an SMS provider. Until env.SMS_PROVIDER is set,
-  // return the code in the response so dev/QA can complete sign-in.
+
+  // TODO: SMS dispatch via env.SMS_PROVIDER (Twilio/MessageBird/etc.)
+
   return json({
     message: 'OTP sent successfully',
     expires_in: OTP_EXPIRY_SECONDS,
-    debug_otp: env.SMS_PROVIDER ? undefined : code,
+    debug_otp: shouldExposeDebugOtp(env) ? code : undefined,
   });
 }
 
@@ -69,6 +94,13 @@ export async function verifyOtp(request, env) {
   if (!PHONE_RE.test(phone)) return error('Invalid phone number');
   if (code.length !== 6) return error('Invalid OTP code');
 
+  // IP-level brute-force defence. 30 verify tries per IP per hour.
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const ipRl = await checkRateLimit(env, 'otp_verify_ip', ip, { max: 30, windowSec: 3600 });
+  if (!ipRl.ok) {
+    return error(`Too many OTP attempts. Try again in ${ipRl.retryAfter}s`, 429);
+  }
+
   const otpRow = await one(
     env,
     `SELECT * FROM otp_codes
@@ -80,8 +112,17 @@ export async function verifyOtp(request, env) {
   if (new Date(otpRow.expires_at).getTime() < Date.now()) {
     return error('OTP expired', 400);
   }
+  if (otpRow.attempts >= OTP_MAX_VERIFY_ATTEMPTS) {
+    // Lock this OTP — they need to request a fresh one
+    await run(env, 'UPDATE otp_codes SET used = 1 WHERE id = ?', otpRow.id);
+    return error('Too many failed attempts on this code. Request a new one.', 429);
+  }
   if (otpRow.code !== code) {
-    await run(env, 'UPDATE otp_codes SET attempts = attempts + 1 WHERE id = ?', otpRow.id);
+    const newAttempts = (otpRow.attempts || 0) + 1;
+    await run(env, 'UPDATE otp_codes SET attempts = ? WHERE id = ?', newAttempts, otpRow.id);
+    if (newAttempts >= OTP_MAX_VERIFY_ATTEMPTS) {
+      await run(env, 'UPDATE otp_codes SET used = 1 WHERE id = ?', otpRow.id);
+    }
     return error('Invalid OTP', 400);
   }
   await run(env, 'UPDATE otp_codes SET used = 1 WHERE id = ?', otpRow.id);
@@ -99,6 +140,29 @@ export async function verifyOtp(request, env) {
     );
     user = await one(env, 'SELECT * FROM users WHERE id = ?', id);
     await findOrCreateWallet(env, user.id);
+  }
+
+  // Bootstrap: grant ADMIN to phones listed in env.BOOTSTRAP_ADMIN_PHONES
+  // (comma-separated). Idempotent — once granted, the env var can be cleared.
+  // Use this to seed the very first admin on a fresh deploy.
+  const bootstrapList = String(env.BOOTSTRAP_ADMIN_PHONES || '')
+    .split(',').map((s) => s.trim()).filter(Boolean);
+  if (bootstrapList.includes(phone) && user.is_admin !== 1) {
+    await run(env, 'UPDATE users SET is_admin = 1 WHERE id = ?', user.id);
+    const existingRole = await one(
+      env,
+      "SELECT id FROM user_roles WHERE user_id = ? AND role = 'ADMIN' AND revoked_at IS NULL",
+      user.id,
+    );
+    if (!existingRole) {
+      await run(
+        env,
+        `INSERT INTO user_roles (id, user_id, role, granted_by_user_id, granted_at, notes)
+         VALUES (?, ?, 'ADMIN', NULL, ?, 'bootstrap')`,
+        uuid(), user.id, nowIso(),
+      );
+    }
+    user = await one(env, 'SELECT * FROM users WHERE id = ?', user.id);
   }
 
   const tokens = await issueTokens(env, user.id);
@@ -161,12 +225,24 @@ export async function refresh(request, env) {
   const token = String(body.refresh_token || '');
   const payload = await verifyJwt(env, token);
   if (!payload || payload.type !== 'refresh') return error('Invalid refresh token', 401);
+
   const stored = await one(
     env,
     'SELECT * FROM refresh_tokens WHERE token = ? AND revoked = 0',
     token,
   );
   if (!stored) return error('Refresh token revoked or unknown', 401);
+
+  // Verify expiry server-side as well as via JWT exp.
+  if (new Date(stored.expires_at).getTime() < Date.now()) {
+    await run(env, 'UPDATE refresh_tokens SET revoked = 1 WHERE id = ?', stored.id);
+    return error('Refresh token expired', 401);
+  }
+
+  // Check the user is still ACTIVE — suspension should kick in immediately.
+  const user = await one(env, 'SELECT status FROM users WHERE id = ?', payload.sub);
+  if (!user || user.status !== 'ACTIVE') return error('User not active', 401);
+
   const access = await signJwt(env, { sub: payload.sub }, 30 * 60, 'access');
   return json({ access_token: access, token_type: 'bearer', expires_in: 1800 });
 }
