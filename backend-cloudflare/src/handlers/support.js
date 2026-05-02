@@ -2,6 +2,7 @@ import { json, readBody, error } from '../lib/http.js';
 import { all, one, run, nowIso } from '../lib/db.js';
 import { uuid } from '../lib/ids.js';
 import { notify } from '../lib/notify.js';
+import { audit } from '../lib/audit.js';
 import { getRoles } from '../lib/auth.js';
 
 const VALID_CATEGORIES = ['BILLING', 'METER', 'PAYMENT', 'ACCOUNT', 'TECHNICAL', 'OTHER'];
@@ -306,10 +307,16 @@ export async function grantRole(request, env, currentUser) {
     await run(env, 'UPDATE users SET is_admin = 1 WHERE id = ?', body.user_id);
   }
 
+  await audit(env, request, {
+    actor_user_id: currentUser.id, action: 'role.grant',
+    entity_type: 'user', entity_id: body.user_id,
+    new: { role: body.role },
+  });
+
   return json({ id, ok: true }, 201);
 }
 
-export async function revokeRole(request, env) {
+export async function revokeRole(request, env, currentUser) {
   const body = await readBody(request);
   if (!body.user_id || !body.role) return error('user_id and role required');
   await run(
@@ -320,5 +327,10 @@ export async function revokeRole(request, env) {
   if (body.role === 'ADMIN') {
     await run(env, 'UPDATE users SET is_admin = 0 WHERE id = ?', body.user_id);
   }
+  await audit(env, request, {
+    actor_user_id: currentUser.id, action: 'role.revoke',
+    entity_type: 'user', entity_id: body.user_id,
+    old: { role: body.role },
+  });
   return json({ ok: true });
 }

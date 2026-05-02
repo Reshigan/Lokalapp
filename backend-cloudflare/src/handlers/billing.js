@@ -1,8 +1,10 @@
 import { json, html, readBody, error } from '../lib/http.js';
-import { all, one, run, nowIso } from '../lib/db.js';
+import { all, one, run, batch, nowIso } from '../lib/db.js';
 import { uuid, invoiceNumber, receiptNumber, confirmCode } from '../lib/ids.js';
 import { calculateCharge, periodWindow, addDays } from '../lib/billing.js';
 import { notify } from '../lib/notify.js';
+import { getIdempotencyKey, checkIdempotency, recordIdempotency } from '../lib/idempotency.js';
+import { audit } from '../lib/audit.js';
 
 function invoicePublic(inv, household) {
   return {
@@ -29,11 +31,19 @@ function invoicePublic(inv, household) {
   };
 }
 
-export async function captureReading(request, env, _user, deps) {
+export async function captureReading(request, env, currentUser, deps) {
   const body = await readBody(request);
+  const idempotencyKey = getIdempotencyKey(request, body);
+
   if (!body.household_id || body.current_reading_kwh == null) {
     return error('household_id and current_reading_kwh required');
   }
+
+  if (idempotencyKey) {
+    const cached = await checkIdempotency(env, 'meter_reading', idempotencyKey);
+    if (cached) return json(JSON.parse(cached), 200);
+  }
+
   const household = await one(env, 'SELECT * FROM households WHERE id = ?', body.household_id);
   if (!household) return error('Household not found', 404);
   if (household.status !== 'ACTIVE') return error(`Household status is ${household.status}`);
@@ -50,28 +60,33 @@ export async function captureReading(request, env, _user, deps) {
   const consumed = curr - prev;
 
   const readingId = uuid();
-  await run(
-    env,
-    `INSERT INTO meter_readings (id, household_id, meter_id, agent_id, previous_reading_kwh,
-       current_reading_kwh, kwh_consumed, source, peak_kwh, standard_kwh, off_peak_kwh,
-       photo_url, notes, captured_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'AGENT', ?, ?, ?, ?, ?, ?)`,
-    readingId, household.id, household.meter_id, deps.agent.id,
-    prev, curr, consumed,
-    body.peak_kwh ?? null, body.standard_kwh ?? null, body.off_peak_kwh ?? null,
-    body.photo_url || null, body.notes || null, nowIso(),
-  );
 
+  // Reading-only path (no invoice)
   if (body.issue_invoice === false) {
-    await run(env, 'UPDATE households SET last_reading_kwh = ?, last_reading_at = ?, updated_at = ? WHERE id = ?',
-      curr, nowIso(), nowIso(), household.id);
-    return json({ message: 'Reading captured (no invoice issued)' });
+    await batch(env, [
+      {
+        sql: `INSERT INTO meter_readings (id, household_id, meter_id, agent_id, previous_reading_kwh,
+                current_reading_kwh, kwh_consumed, source, peak_kwh, standard_kwh, off_peak_kwh,
+                photo_url, notes, captured_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, 'AGENT', ?, ?, ?, ?, ?, ?)`,
+        binds: [readingId, household.id, household.meter_id, deps.agent.id,
+                prev, curr, consumed,
+                body.peak_kwh ?? null, body.standard_kwh ?? null, body.off_peak_kwh ?? null,
+                body.photo_url || null, body.notes || null, nowIso()],
+      },
+      {
+        sql: 'UPDATE households SET last_reading_kwh = ?, last_reading_at = ?, updated_at = ? WHERE id = ?',
+        binds: [curr, nowIso(), nowIso(), household.id],
+      },
+    ]);
+    const resp = { message: 'Reading captured (no invoice issued)', reading_id: readingId };
+    await recordIdempotency(env, 'meter_reading', idempotencyKey, JSON.stringify(resp));
+    return json(resp);
   }
 
+  // Reading + invoice — atomic
   const { energyCharge, lineItems } = calculateCharge(tariff, blocks, bands, consumed, {
-    peak_kwh: body.peak_kwh,
-    standard_kwh: body.standard_kwh,
-    off_peak_kwh: body.off_peak_kwh,
+    peak_kwh: body.peak_kwh, standard_kwh: body.standard_kwh, off_peak_kwh: body.off_peak_kwh,
   });
   const serviceFee = Number(tariff.service_fee || 0);
   if (serviceFee > 0) {
@@ -83,30 +98,48 @@ export async function captureReading(request, env, _user, deps) {
   const dueDate = addDays(new Date(period_end), 14).toISOString();
 
   const invoiceId = uuid();
-  await run(
-    env,
-    `INSERT INTO electricity_invoices (id, invoice_number, household_id, tariff_id, reading_id,
-       issued_by_agent_id, period_start, period_end, issue_date, due_date,
-       previous_reading_kwh, current_reading_kwh, kwh_consumed,
-       energy_charge, service_fee, total_amount, amount_paid, breakdown, status, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'ISSUED', ?, ?)`,
-    invoiceId, invoiceNumber(), household.id, tariff.id, readingId, deps.agent.id,
-    period_start, period_end, nowIso(), dueDate,
-    prev, curr, consumed,
-    energyCharge, serviceFee, total,
-    JSON.stringify(lineItems),
-    nowIso(), nowIso(),
-  );
+  const invNum = invoiceNumber();
 
-  await run(
-    env,
-    `UPDATE households SET last_reading_kwh = ?, last_reading_at = ?, current_balance = current_balance + ?, updated_at = ? WHERE id = ?`,
-    curr, nowIso(), total, nowIso(), household.id,
-  );
+  await batch(env, [
+    {
+      sql: `INSERT INTO meter_readings (id, household_id, meter_id, agent_id, previous_reading_kwh,
+              current_reading_kwh, kwh_consumed, source, peak_kwh, standard_kwh, off_peak_kwh,
+              photo_url, notes, captured_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'AGENT', ?, ?, ?, ?, ?, ?)`,
+      binds: [readingId, household.id, household.meter_id, deps.agent.id,
+              prev, curr, consumed,
+              body.peak_kwh ?? null, body.standard_kwh ?? null, body.off_peak_kwh ?? null,
+              body.photo_url || null, body.notes || null, nowIso()],
+    },
+    {
+      sql: `INSERT INTO electricity_invoices (id, invoice_number, household_id, tariff_id, reading_id,
+              issued_by_agent_id, period_start, period_end, issue_date, due_date,
+              previous_reading_kwh, current_reading_kwh, kwh_consumed,
+              energy_charge, service_fee, total_amount, amount_paid, breakdown, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'ISSUED', ?, ?)`,
+      binds: [invoiceId, invNum, household.id, tariff.id, readingId, deps.agent.id,
+              period_start, period_end, nowIso(), dueDate,
+              prev, curr, consumed,
+              energyCharge, serviceFee, total,
+              JSON.stringify(lineItems),
+              nowIso(), nowIso()],
+    },
+    {
+      sql: `UPDATE households SET last_reading_kwh = ?, last_reading_at = ?,
+              current_balance = current_balance + ?, updated_at = ? WHERE id = ?`,
+      binds: [curr, nowIso(), total, nowIso(), household.id],
+    },
+  ]);
+
+  await audit(env, request, {
+    actor_user_id: currentUser.id, action: 'invoice.issue',
+    entity_type: 'invoice', entity_id: invoiceId,
+    new: { invoice_number: invNum, household_id: household.id, kwh: consumed, total },
+  });
 
   if (household.user_id) {
     await notify(env, household.user_id, {
-      title: `New invoice ${invoiceNumber()}`.replace('INV-', 'INV '),
+      title: `New invoice ${invNum}`,
       body: `R${total.toFixed(2)} due ${new Date(dueDate).toLocaleDateString()} for ${consumed.toFixed(2)} kWh.`,
       category: 'INVOICE_ISSUED',
       data: { invoice_id: invoiceId, household_id: household.id },
@@ -114,7 +147,9 @@ export async function captureReading(request, env, _user, deps) {
   }
 
   const inv = await one(env, 'SELECT * FROM electricity_invoices WHERE id = ?', invoiceId);
-  return json(invoicePublic(inv, household), 201);
+  const resp = invoicePublic(inv, household);
+  await recordIdempotency(env, 'meter_reading', idempotencyKey, JSON.stringify(resp));
+  return json(resp, 201);
 }
 
 export async function listInvoices(request, env, currentUser) {
@@ -241,9 +276,17 @@ function collectionPublic(c, invoice) {
   };
 }
 
-export async function createCollection(request, env, _user, deps) {
+export async function createCollection(request, env, currentUser, deps) {
   const body = await readBody(request);
+  const idempotencyKey = getIdempotencyKey(request, body);
+
   if (!body.invoice_id || body.amount == null) return error('invoice_id and amount required');
+
+  if (idempotencyKey) {
+    const cached = await checkIdempotency(env, 'collection_create', idempotencyKey);
+    if (cached) return json(JSON.parse(cached), 200);
+  }
+
   const invoice = await one(env, 'SELECT * FROM electricity_invoices WHERE id = ?', body.invoice_id);
   if (!invoice) return error('Invoice not found', 404);
   if (invoice.status === 'PAID') return error('Invoice already paid');
@@ -253,6 +296,16 @@ export async function createCollection(request, env, _user, deps) {
   const amount = Number(body.amount);
   if (Math.abs(amount - outstanding) > 0.005) {
     return error(`Cash amount must equal outstanding R${outstanding.toFixed(2)} (no partial payments)`);
+  }
+
+  // Reject duplicates: if there's already a PENDING collection on this invoice, return it.
+  const dup = await one(
+    env,
+    `SELECT * FROM cash_collections WHERE invoice_id = ? AND status = 'PENDING_HOUSEHOLD_CONFIRM'`,
+    invoice.id,
+  );
+  if (dup) {
+    return error('A pending collection already exists for this invoice', 409);
   }
 
   const id = uuid();
@@ -279,10 +332,19 @@ export async function createCollection(request, env, _user, deps) {
   }
 
   const c = await one(env, 'SELECT * FROM cash_collections WHERE id = ?', id);
-  return json(collectionPublic(c, invoice), 201);
+  const resp = collectionPublic(c, invoice);
+  await recordIdempotency(env, 'collection_create', idempotencyKey, JSON.stringify(resp));
+
+  await audit(env, request, {
+    actor_user_id: currentUser.id, action: 'collection.create',
+    entity_type: 'cash_collection', entity_id: id,
+    new: { invoice_id: invoice.id, amount, household_id: invoice.household_id },
+  });
+
+  return json(resp, 201);
 }
 
-export async function confirmCollection(request, env, _user, _deps, params) {
+export async function confirmCollection(request, env, currentUser, _deps, params) {
   const body = await readBody(request);
   const c = await one(env, 'SELECT * FROM cash_collections WHERE id = ?', params.id);
   if (!c) return error('Collection not found', 404);
@@ -290,24 +352,44 @@ export async function confirmCollection(request, env, _user, _deps, params) {
   if (c.household_confirm_code !== String(body.confirm_code)) return error('Invalid confirmation code');
 
   const inv = await one(env, 'SELECT * FROM electricity_invoices WHERE id = ?', c.invoice_id);
-  const newPaid = Number(inv.amount_paid || 0) + Number(c.amount);
+  const newPaid = Math.round((Number(inv.amount_paid || 0) + Number(c.amount)) * 100) / 100;
   const newStatus = newPaid >= Number(inv.total_amount) ? 'PAID' : inv.status;
+  const amt = Number(c.amount);
 
-  await run(env,
-    `UPDATE cash_collections SET status = 'CONFIRMED', household_confirmed_at = ? WHERE id = ?`,
-    nowIso(), c.id);
-  await run(env,
-    `UPDATE electricity_invoices SET amount_paid = ?, status = ?, updated_at = ? WHERE id = ?`,
-    newPaid, newStatus, nowIso(), inv.id);
-  await run(env,
-    `UPDATE households SET current_balance = current_balance - ?, updated_at = ? WHERE id = ?`,
-    Number(c.amount), nowIso(), c.household_id);
+  // Atomic state transition. The WHERE status= guard prevents double-confirm.
+  await batch(env, [
+    {
+      sql: `UPDATE cash_collections SET status = 'CONFIRMED', household_confirmed_at = ?
+            WHERE id = ? AND status = 'PENDING_HOUSEHOLD_CONFIRM'`,
+      binds: [nowIso(), c.id],
+    },
+    {
+      sql: `UPDATE electricity_invoices SET amount_paid = ?, status = ?, updated_at = ? WHERE id = ?`,
+      binds: [newPaid, newStatus, nowIso(), inv.id],
+    },
+    {
+      sql: `UPDATE households SET current_balance = current_balance - ?, updated_at = ? WHERE id = ?`,
+      binds: [amt, nowIso(), c.household_id],
+    },
+  ]);
+
+  // Verify confirmation actually applied (race window)
+  const after = await one(env, 'SELECT status FROM cash_collections WHERE id = ?', c.id);
+  if (after?.status !== 'CONFIRMED') {
+    return error('Concurrent update — collection state changed, please retry', 409);
+  }
+
+  await audit(env, request, {
+    actor_user_id: currentUser.id, action: 'collection.confirm',
+    entity_type: 'cash_collection', entity_id: c.id,
+    new: { invoice_id: inv.id, amount: amt, invoice_status: newStatus },
+  });
 
   const household = await one(env, 'SELECT user_id FROM households WHERE id = ?', c.household_id);
   if (household?.user_id) {
     await notify(env, household.user_id, {
       title: 'Payment confirmed',
-      body: `R${Number(c.amount).toFixed(2)} confirmed for invoice ${inv.invoice_number}.`,
+      body: `R${amt.toFixed(2)} confirmed for invoice ${inv.invoice_number}.`,
       category: 'PAYMENT_RECEIVED',
       data: { invoice_id: inv.id, collection_id: c.id },
     });

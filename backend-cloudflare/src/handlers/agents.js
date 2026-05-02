@@ -1,6 +1,8 @@
 import { json, readBody, error } from '../lib/http.js';
-import { one, all, run, nowIso } from '../lib/db.js';
-import { uuid, agentCode } from '../lib/ids.js';
+import { one, all, run, batch, nowIso } from '../lib/db.js';
+import { uuid, agentCode, transactionRef, voucherCode } from '../lib/ids.js';
+import { getIdempotencyKey } from '../lib/idempotency.js';
+import { audit } from '../lib/audit.js';
 
 const COMMISSION_RATES = { BRONZE: 0.05, SILVER: 0.07, GOLD: 0.10, PLATINUM: 0.12 };
 
@@ -66,14 +68,57 @@ export async function getFloat(_request, _env, _currentUser, deps) {
   });
 }
 
-export async function topupFloat(request, env, _currentUser, deps) {
+export async function topupFloat(request, env, currentUser, deps) {
   const body = await readBody(request);
+  const idempotencyKey = getIdempotencyKey(request, body);
   const amt = Number(body.amount);
   if (!(amt > 0)) return error('amount must be > 0');
-  const newBalance = Number(deps.agent.float_balance || 0) + amt;
-  await run(env, 'UPDATE agents SET float_balance = ?, updated_at = ? WHERE id = ?',
-    newBalance, nowIso(), deps.agent.id);
-  return json({ new_float_balance: newBalance });
+
+  if (idempotencyKey) {
+    const seen = await one(env, 'SELECT * FROM transactions WHERE idempotency_key = ?', idempotencyKey);
+    if (seen) {
+      const a = await one(env, 'SELECT float_balance FROM agents WHERE id = ?', deps.agent.id);
+      return json({ new_float_balance: Number(a.float_balance), replayed: true });
+    }
+  }
+
+  // Float top-ups are recorded as transactions on the agent's own wallet so
+  // there's a money-flow audit trail.
+  const wallet = await one(env, 'SELECT * FROM wallets WHERE user_id = ?', deps.agent.user_id);
+  if (!wallet) return error('Agent has no wallet');
+
+  const before = Number(wallet.balance);
+  const txId = uuid();
+  const ref = transactionRef();
+  const newFloat = Number(deps.agent.float_balance || 0) + amt;
+
+  await batch(env, [
+    {
+      sql: 'UPDATE agents SET float_balance = float_balance + ?, updated_at = ? WHERE id = ?',
+      binds: [amt, nowIso(), deps.agent.id],
+    },
+    // Record the float topup as a 0-net transaction on the agent's wallet so it's audit-visible.
+    // Future: if the float is funded from the wallet, this would also debit the wallet.
+    {
+      sql: `INSERT INTO transactions (id, wallet_id, agent_id, type, amount, balance_before, balance_after,
+              reference, status, payment_method, description, idempotency_key, extra_data, created_at)
+            VALUES (?, ?, ?, 'TOPUP', ?, ?, ?, ?, 'COMPLETED', ?, ?, ?, ?, ?)`,
+      binds: [txId, wallet.id, deps.agent.id, 0, before, before, ref,
+              body.payment_method || 'CARD',
+              `Float top-up R${amt.toFixed(2)}`,
+              idempotencyKey,
+              JSON.stringify({ kind: 'float_topup', amount: amt, new_float: newFloat }),
+              nowIso()],
+    },
+  ]);
+
+  await audit(env, request, {
+    actor_user_id: currentUser.id, action: 'agent.float.topup',
+    entity_type: 'agent', entity_id: deps.agent.id,
+    new: { amount: amt, new_float_balance: newFloat, reference: ref },
+  });
+
+  return json({ new_float_balance: newFloat, reference: ref, transaction_id: txId });
 }
 
 export async function getAlerts(_request, env, _currentUser, deps) {
@@ -230,7 +275,8 @@ const COMMISSION_BY_TIER = COMMISSION_RATES;
 
 export async function processTransaction(request, env, _user, deps) {
   const body = await readBody(request);
-  // body: { customer_phone, product_type: 'WIFI'|'ELECTRICITY', package_id, meter_id?, idempotency_key? }
+  const idempotencyKey = getIdempotencyKey(request, body);
+
   const phone = normalizePhone(body.customer_phone);
   const customer = await one(env, 'SELECT * FROM users WHERE phone_number = ?', phone);
   if (!customer) return error('Customer not found', 404);
@@ -245,76 +291,110 @@ export async function processTransaction(request, env, _user, deps) {
   }
   if (!pkg) return error('Package not found', 404);
 
-  if (Number(deps.agent.float_balance) < Number(pkg.price)) {
-    return error('Insufficient agent float');
+  if (idempotencyKey) {
+    const seen = await one(env, 'SELECT * FROM transactions WHERE idempotency_key = ?', idempotencyKey);
+    if (seen) {
+      const extra = (() => { try { return JSON.parse(seen.extra_data || '{}'); } catch { return {}; } })();
+      const a = await one(env, 'SELECT float_balance FROM agents WHERE id = ?', deps.agent.id);
+      return json({
+        transaction_id: seen.id, reference: seen.reference,
+        voucher_code: extra.voucher_code, amount: Math.abs(Number(seen.amount)),
+        commission_earned: Number(extra.commission || 0),
+        new_float_balance: Number(a?.float_balance || 0),
+        replayed: true,
+      });
+    }
   }
+
+  const price = Number(pkg.price);
+  if (Number(deps.agent.float_balance) < price) return error('Insufficient agent float');
 
   const commissionRate = COMMISSION_BY_TIER[deps.agent.tier] || 0.05;
-  const commission = Math.round(Number(pkg.price) * commissionRate * 100) / 100;
+  const commission = Math.round(price * commissionRate * 100) / 100;
+
+  const customerWallet = await one(env, 'SELECT id, balance FROM wallets WHERE user_id = ?', customer.id);
+  if (!customerWallet) return error('Customer has no wallet');
 
   const txId = uuid();
-  // Debit agent float, accrue commission
-  await run(
-    env,
-    `UPDATE agents SET float_balance = float_balance - ?, commission_balance = commission_balance + ?,
-       total_sales = total_sales + ?, monthly_sales = monthly_sales + ?, updated_at = ? WHERE id = ?`,
-    Number(pkg.price), commission, Number(pkg.price), Number(pkg.price), nowIso(), deps.agent.id,
-  );
+  const ref = transactionRef();
+  let voucherCodeOut, voucherId;
 
-  await run(
-    env,
-    `INSERT INTO transactions (id, wallet_id, agent_id, type, amount, balance_before, balance_after,
-       reference, status, payment_method, description, created_at)
-     SELECT ?, w.id, ?, 'PURCHASE', ?, w.balance, w.balance, ?, 'COMPLETED', 'AGENT', ?, ?
-     FROM wallets w WHERE w.user_id = ?`,
-    txId, deps.agent.id, -Number(pkg.price),
-    'TXN' + Math.random().toString(36).slice(2, 10).toUpperCase(),
-    `${body.product_type} via agent ${deps.agent.business_name}: ${pkg.name}`,
-    nowIso(), customer.id,
-  );
+  const stmts = [
+    {
+      sql: `UPDATE agents SET float_balance = float_balance - ?, commission_balance = commission_balance + ?,
+              total_sales = total_sales + ?, monthly_sales = monthly_sales + ?, updated_at = ? WHERE id = ? AND float_balance >= ?`,
+      binds: [price, commission, price, price, nowIso(), deps.agent.id, price],
+    },
+    {
+      sql: `INSERT INTO transactions (id, wallet_id, agent_id, type, amount, balance_before, balance_after,
+              reference, status, payment_method, description, idempotency_key, extra_data, created_at)
+            VALUES (?, ?, ?, 'PURCHASE', ?, ?, ?, ?, 'COMPLETED', 'AGENT', ?, ?, ?, ?)`,
+      binds: [
+        txId, customerWallet.id, deps.agent.id,
+        -price, Number(customerWallet.balance), Number(customerWallet.balance), ref,
+        `${body.product_type} via agent ${deps.agent.business_name}: ${pkg.name}`,
+        idempotencyKey,
+        '__placeholder__', // patched below before commit
+        nowIso(),
+      ],
+    },
+    {
+      sql: `INSERT INTO agent_commissions (id, agent_id, transaction_id, type, amount, description, created_at)
+            VALUES (?, ?, ?, 'EARNED', ?, ?, ?)`,
+      binds: [uuid(), deps.agent.id, txId, commission,
+              `Commission ${(commissionRate * 100).toFixed(0)}% on ${pkg.name}`, nowIso()],
+    },
+  ];
 
-  // Commission ledger
-  await run(
-    env,
-    `INSERT INTO agent_commissions (id, agent_id, transaction_id, type, amount, description, created_at)
-     VALUES (?, ?, ?, 'EARNED', ?, ?, ?)`,
-    uuid(), deps.agent.id, txId, commission,
-    `Commission ${(commissionRate * 100).toFixed(0)}% on ${pkg.name}`, nowIso(),
-  );
-
-  // Provision the product
-  let voucherCodeOut;
   if (body.product_type === 'WIFI') {
+    voucherId = uuid();
     voucherCodeOut = 'V' + Math.random().toString(36).slice(2, 14).toUpperCase();
-    await run(
-      env,
-      `INSERT INTO wifi_vouchers (id, user_id, package_id, voucher_code, status, data_limit_mb, validity_hours, created_at)
-       VALUES (?, ?, ?, ?, 'UNUSED', ?, ?, ?)`,
-      uuid(), customer.id, pkg.id,
-      voucherCodeOut,
-      pkg.data_limit_mb, pkg.validity_hours, nowIso(),
-    );
+    stmts.push({
+      sql: `INSERT INTO wifi_vouchers (id, user_id, package_id, voucher_code, status,
+              data_limit_mb, validity_hours, created_at)
+            VALUES (?, ?, ?, ?, 'UNUSED', ?, ?, ?)`,
+      binds: [voucherId, customer.id, pkg.id, voucherCodeOut, pkg.data_limit_mb, pkg.validity_hours, nowIso()],
+    });
   } else if (body.product_type === 'ELECTRICITY' && body.meter_id) {
-    await run(
-      env, 'UPDATE electricity_meters SET kwh_balance = kwh_balance + ? WHERE id = ? AND user_id = ?',
-      Number(pkg.kwh_amount || 0), body.meter_id, customer.id,
-    );
+    stmts.push({
+      sql: 'UPDATE electricity_meters SET kwh_balance = kwh_balance + ? WHERE id = ? AND user_id = ?',
+      binds: [Number(pkg.kwh_amount || 0), body.meter_id, customer.id],
+    });
   }
 
-  // Update agent_customers totals
-  await run(
-    env,
-    `UPDATE agent_customers SET total_purchases = total_purchases + ?, last_purchase_at = ? WHERE agent_id = ? AND user_id = ?`,
-    Number(pkg.price), nowIso(), deps.agent.id, customer.id,
-  );
+  // Update agent_customers totals if linked
+  stmts.push({
+    sql: `UPDATE agent_customers SET total_purchases = total_purchases + ?, last_purchase_at = ?
+          WHERE agent_id = ? AND user_id = ?`,
+    binds: [price, nowIso(), deps.agent.id, customer.id],
+  });
+
+  // Patch the placeholder extra_data now that we know voucher info
+  stmts[1].binds[10] = JSON.stringify({
+    product: body.product_type,
+    package_id: pkg.id,
+    voucher_id: voucherId || null,
+    voucher_code: voucherCodeOut || null,
+    meter_id: body.meter_id || null,
+    commission,
+    customer_id: customer.id,
+  });
+
+  await batch(env, stmts);
+
+  // Verify the float actually debited (if not, the WHERE float_balance >= ? guard caught a race)
+  const updatedAgent = await one(env, 'SELECT float_balance FROM agents WHERE id = ?', deps.agent.id);
+  if (Number(updatedAgent.float_balance) === Number(deps.agent.float_balance)) {
+    return error('Concurrent update — float not debited, please retry', 409);
+  }
 
   return json({
     transaction_id: txId,
-    reference: 'TXN' + Math.random().toString(36).slice(2, 10).toUpperCase(),
+    reference: ref,
     voucher_code: voucherCodeOut,
-    amount: Number(pkg.price),
+    amount: price,
     commission_earned: commission,
-    new_float_balance: Number(deps.agent.float_balance) - Number(pkg.price),
+    new_float_balance: Number(updatedAgent.float_balance),
   }, 201);
 }
 
@@ -344,37 +424,71 @@ export async function getCommissions(_request, env, _user, deps) {
   });
 }
 
-export async function withdrawCommission(request, env, _user, deps) {
+export async function withdrawCommission(request, env, currentUser, deps) {
   const body = await readBody(request);
+  const idempotencyKey = getIdempotencyKey(request, body);
   const amt = Number(body.amount);
   if (!(amt > 0)) return error('amount must be > 0');
+
+  if (idempotencyKey) {
+    const seen = await one(env, 'SELECT * FROM transactions WHERE idempotency_key = ?', idempotencyKey);
+    if (seen) {
+      const a = await one(env, 'SELECT commission_balance FROM agents WHERE id = ?', deps.agent.id);
+      return json({
+        amount: amt,
+        new_balance: Number(a.commission_balance),
+        new_wallet_balance: Number(seen.balance_after),
+        replayed: true,
+      });
+    }
+  }
+
   const balance = Number(deps.agent.commission_balance || 0);
   if (amt > balance) return error('Insufficient commission balance');
 
-  // Move to wallet
   const wallet = await one(env, 'SELECT * FROM wallets WHERE user_id = ?', deps.agent.user_id);
   if (!wallet) return error('Agent has no wallet');
-  await run(env, 'UPDATE agents SET commission_balance = commission_balance - ?, updated_at = ? WHERE id = ?',
-    amt, nowIso(), deps.agent.id);
+
   const before = Number(wallet.balance);
   const after = before + amt;
-  await run(env, 'UPDATE wallets SET balance = ?, updated_at = ? WHERE id = ?', after, nowIso(), wallet.id);
-  await run(
-    env,
-    `INSERT INTO transactions (id, wallet_id, type, amount, balance_before, balance_after,
-       reference, status, payment_method, description, created_at)
-     VALUES (?, ?, 'COMMISSION', ?, ?, ?, ?, 'COMPLETED', 'AGENT', ?, ?)`,
-    uuid(), wallet.id, amt, before, after,
-    'CMW' + Math.random().toString(36).slice(2, 10).toUpperCase(),
-    'Commission withdrawal', nowIso(),
-  );
-  await run(
-    env,
-    `INSERT INTO agent_commissions (id, agent_id, type, amount, description, created_at)
-     VALUES (?, ?, 'WITHDRAWN', ?, ?, ?)`,
-    uuid(), deps.agent.id, amt, 'Withdrawal to wallet', nowIso(),
-  );
-  return json({ amount: amt, new_balance: balance - amt, new_wallet_balance: after });
+  const ref = transactionRef();
+
+  await batch(env, [
+    {
+      sql: 'UPDATE agents SET commission_balance = commission_balance - ?, updated_at = ? WHERE id = ? AND commission_balance >= ?',
+      binds: [amt, nowIso(), deps.agent.id, amt],
+    },
+    {
+      sql: 'UPDATE wallets SET balance = balance + ?, updated_at = ? WHERE id = ?',
+      binds: [amt, nowIso(), wallet.id],
+    },
+    {
+      sql: `INSERT INTO transactions (id, wallet_id, agent_id, type, amount, balance_before, balance_after,
+              reference, status, payment_method, description, idempotency_key, created_at)
+            VALUES (?, ?, ?, 'COMMISSION', ?, ?, ?, ?, 'COMPLETED', 'AGENT', ?, ?, ?)`,
+      binds: [uuid(), wallet.id, deps.agent.id, amt, before, after, ref,
+              'Commission withdrawal', idempotencyKey, nowIso()],
+    },
+    {
+      sql: `INSERT INTO agent_commissions (id, agent_id, type, amount, description, created_at)
+            VALUES (?, ?, 'WITHDRAWN', ?, ?, ?)`,
+      binds: [uuid(), deps.agent.id, amt, 'Withdrawal to wallet', nowIso()],
+    },
+  ]);
+
+  // Verify
+  const updated = await one(env, 'SELECT commission_balance FROM agents WHERE id = ?', deps.agent.id);
+  if (Number(updated.commission_balance) === balance) {
+    return error('Concurrent update — commission not debited, please retry', 409);
+  }
+
+  await audit(env, request, {
+    actor_user_id: currentUser.id, action: 'agent.commission.withdraw',
+    entity_type: 'agent', entity_id: deps.agent.id,
+    new: { amount: amt, reference: ref },
+  });
+
+  return json({ amount: amt, new_balance: balance - amt, new_wallet_balance: after, reference: ref });
 }
 
 export async function salesReport(_request, env, _currentUser, deps) {

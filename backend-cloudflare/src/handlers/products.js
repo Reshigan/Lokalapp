@@ -1,6 +1,7 @@
 import { json, readBody, error } from '../lib/http.js';
-import { all, one, run, nowIso } from '../lib/db.js';
+import { all, one, run, batch, nowIso } from '../lib/db.js';
 import { uuid, voucherCode, transactionRef } from '../lib/ids.js';
+import { getIdempotencyKey } from '../lib/idempotency.js';
 
 // ---------- WiFi packages + vouchers ----------
 
@@ -11,37 +12,62 @@ export async function listWifiPackages(_request, env) {
 
 export async function purchaseWifi(request, env, currentUser) {
   const body = await readBody(request);
+  const idempotencyKey = getIdempotencyKey(request, body);
+
   const pkg = await one(env, 'SELECT * FROM wifi_packages WHERE id = ? AND is_active = 1', body.package_id);
   if (!pkg) return error('Package not found');
 
-  let wallet = await one(env, 'SELECT * FROM wallets WHERE user_id = ?', currentUser.id);
-  if (!wallet) return error('Wallet missing');
-  if (Number(wallet.balance) < Number(pkg.price)) return error('Insufficient balance');
+  if (idempotencyKey) {
+    const seen = await one(env, 'SELECT * FROM transactions WHERE idempotency_key = ?', idempotencyKey);
+    if (seen) {
+      const v = await one(env, "SELECT id, voucher_code FROM wifi_vouchers WHERE user_id = ? AND created_at >= ? ORDER BY created_at DESC LIMIT 1",
+        currentUser.id, seen.created_at);
+      return json({
+        transaction_id: seen.id, voucher_id: v?.id, voucher_code: v?.voucher_code,
+        new_balance: Number(seen.balance_after), replayed: true,
+      });
+    }
+  }
 
+  const wallet = await one(env, 'SELECT * FROM wallets WHERE user_id = ?', currentUser.id);
+  if (!wallet) return error('Wallet missing');
+  const price = Number(pkg.price);
   const before = Number(wallet.balance);
-  const after = before - Number(pkg.price);
+  if (before < price) return error('Insufficient balance');
+  const after = before - price;
 
   const txId = uuid();
   const voucherId = uuid();
   const code = voucherCode();
-  await run(
-    env,
-    `UPDATE wallets SET balance = ?, daily_spent = daily_spent + ?, monthly_spent = monthly_spent + ?, updated_at = ? WHERE id = ?`,
-    after, pkg.price, pkg.price, nowIso(), wallet.id,
-  );
-  await run(
-    env,
-    `INSERT INTO transactions (id, wallet_id, type, amount, balance_before, balance_after, reference, status, payment_method, description, created_at)
-     VALUES (?, ?, 'PURCHASE', ?, ?, ?, ?, 'COMPLETED', 'WALLET', ?, ?)`,
-    txId, wallet.id, -Number(pkg.price), before, after, transactionRef(),
-    `WiFi: ${pkg.name}`, nowIso(),
-  );
-  await run(
-    env,
-    `INSERT INTO wifi_vouchers (id, user_id, package_id, voucher_code, status, data_limit_mb, validity_hours, created_at)
-     VALUES (?, ?, ?, ?, 'UNUSED', ?, ?, ?)`,
-    voucherId, currentUser.id, pkg.id, code, pkg.data_limit_mb, pkg.validity_hours, nowIso(),
-  );
+
+  await batch(env, [
+    {
+      sql: 'UPDATE wallets SET balance = balance - ?, daily_spent = daily_spent + ?, monthly_spent = monthly_spent + ?, updated_at = ? WHERE id = ? AND balance >= ?',
+      binds: [price, price, price, nowIso(), wallet.id, price],
+    },
+    {
+      sql: `INSERT INTO transactions (id, wallet_id, type, amount, balance_before, balance_after,
+              reference, status, payment_method, description, idempotency_key, extra_data, created_at)
+            VALUES (?, ?, 'PURCHASE', ?, ?, ?, ?, 'COMPLETED', 'WALLET', ?, ?, ?, ?)`,
+      binds: [txId, wallet.id, -price, before, after, transactionRef(),
+              `WiFi: ${pkg.name}`, idempotencyKey,
+              JSON.stringify({ product: 'WIFI', package_id: pkg.id, voucher_id: voucherId }),
+              nowIso()],
+    },
+    {
+      sql: `INSERT INTO wifi_vouchers (id, user_id, package_id, voucher_code, status,
+              data_limit_mb, validity_hours, created_at)
+            VALUES (?, ?, ?, ?, 'UNUSED', ?, ?, ?)`,
+      binds: [voucherId, currentUser.id, pkg.id, code, pkg.data_limit_mb, pkg.validity_hours, nowIso()],
+    },
+  ]);
+
+  // Verify the sender's wallet really debited
+  const updated = await one(env, 'SELECT balance FROM wallets WHERE id = ?', wallet.id);
+  if (Number(updated.balance) !== after) {
+    return error('Concurrent update detected, please retry', 409);
+  }
+
   return json({
     transaction_id: txId,
     voucher_id: voucherId,
@@ -84,37 +110,72 @@ export async function listElectricityPackages(_request, env) {
 
 export async function purchaseElectricity(request, env, currentUser) {
   const body = await readBody(request);
+  const idempotencyKey = getIdempotencyKey(request, body);
+
   const pkg = await one(env, 'SELECT * FROM electricity_packages WHERE id = ? AND is_active = 1', body.package_id);
   if (!pkg) return error('Package not found');
 
   const meter = await one(env, 'SELECT * FROM electricity_meters WHERE id = ? AND user_id = ?', body.meter_id, currentUser.id);
   if (!meter) return error('Meter not found or not registered to you', 404);
 
-  const wallet = await one(env, 'SELECT * FROM wallets WHERE user_id = ?', currentUser.id);
-  if (!wallet || Number(wallet.balance) < Number(pkg.price)) return error('Insufficient balance');
+  if (idempotencyKey) {
+    const seen = await one(env, 'SELECT * FROM transactions WHERE idempotency_key = ?', idempotencyKey);
+    if (seen) {
+      const m = await one(env, 'SELECT kwh_balance FROM electricity_meters WHERE id = ?', meter.id);
+      return json({
+        transaction_id: seen.id, reference: seen.reference,
+        new_wallet_balance: Number(seen.balance_after),
+        new_kwh_balance: Number(m?.kwh_balance || 0),
+        kwh_purchased: Number(pkg.kwh_amount || 0),
+        replayed: true,
+      });
+    }
+  }
 
+  const wallet = await one(env, 'SELECT * FROM wallets WHERE user_id = ?', currentUser.id);
+  if (!wallet) return error('Wallet missing');
+  const price = Number(pkg.price);
   const before = Number(wallet.balance);
-  const after = before - Number(pkg.price);
-  const ref = transactionRef();
+  if (before < price) return error('Insufficient balance');
+  const after = before - price;
+  const kwh = Number(pkg.kwh_amount || 0);
+  const newKwh = Number(meter.kwh_balance || 0) + kwh;
+
   const txId = uuid();
-  await run(env, 'UPDATE wallets SET balance = ?, updated_at = ? WHERE id = ?', after, nowIso(), wallet.id);
-  await run(
-    env,
-    `INSERT INTO transactions (id, wallet_id, type, amount, balance_before, balance_after, reference, status, payment_method, description, created_at)
-     VALUES (?, ?, 'PURCHASE', ?, ?, ?, ?, 'COMPLETED', 'WALLET', ?, ?)`,
-    txId, wallet.id, -Number(pkg.price), before, after, ref,
-    `Electricity: ${pkg.name} for ${meter.meter_number}`, nowIso(),
-  );
-  const newKwh = Number(meter.kwh_balance || 0) + Number(pkg.kwh_amount || 0);
-  await run(env, 'UPDATE electricity_meters SET kwh_balance = ?, updated_at = ? WHERE id = ?',
-    newKwh, nowIso(), meter.id);
+  const ref = transactionRef();
+
+  await batch(env, [
+    {
+      sql: 'UPDATE wallets SET balance = balance - ?, daily_spent = daily_spent + ?, monthly_spent = monthly_spent + ?, updated_at = ? WHERE id = ? AND balance >= ?',
+      binds: [price, price, price, nowIso(), wallet.id, price],
+    },
+    {
+      sql: `INSERT INTO transactions (id, wallet_id, type, amount, balance_before, balance_after,
+              reference, status, payment_method, description, idempotency_key, extra_data, created_at)
+            VALUES (?, ?, 'PURCHASE', ?, ?, ?, ?, 'COMPLETED', 'WALLET', ?, ?, ?, ?)`,
+      binds: [txId, wallet.id, -price, before, after, ref,
+              `Electricity: ${pkg.name} for ${meter.meter_number}`,
+              idempotencyKey,
+              JSON.stringify({ product: 'ELECTRICITY', package_id: pkg.id, meter_id: meter.id, kwh }),
+              nowIso()],
+    },
+    {
+      sql: 'UPDATE electricity_meters SET kwh_balance = kwh_balance + ?, updated_at = ? WHERE id = ?',
+      binds: [kwh, nowIso(), meter.id],
+    },
+  ]);
+
+  const updated = await one(env, 'SELECT balance FROM wallets WHERE id = ?', wallet.id);
+  if (Number(updated.balance) !== after) {
+    return error('Concurrent update detected, please retry', 409);
+  }
 
   return json({
     transaction_id: txId,
     reference: ref,
     new_wallet_balance: after,
     new_kwh_balance: newKwh,
-    kwh_purchased: Number(pkg.kwh_amount || 0),
+    kwh_purchased: kwh,
   });
 }
 

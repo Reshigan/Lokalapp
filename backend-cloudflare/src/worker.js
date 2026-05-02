@@ -149,6 +149,10 @@ const ROUTES = [
   ['GET',    '/admin/analytics',               admin.adminAnalytics,    'admin'],
   ['GET',    '/admin/analytics/revenue',       admin.revenueReport,     'admin'],
   ['GET',    '/admin/audit-logs',              admin.auditLogs,         'admin'],
+  ['GET',    '/admin/reconciliation',          admin.reconciliation,    'admin'],
+  ['POST',   '/admin/invoices/:id/cancel',     admin.cancelInvoice,     'admin'],
+  ['POST',   '/admin/collections/:id/void',    admin.voidCollection,    'admin'],
+  ['POST',   '/admin/transactions/:id/refund', admin.refundTransaction, 'admin'],
 
   ['GET',    '/admin/settings/payment-gateways',     admin.listPaymentGateways,   'admin'],
   ['POST',   '/admin/settings/payment-gateways',     admin.createPaymentGateway,  'admin'],
