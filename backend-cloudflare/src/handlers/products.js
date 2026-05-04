@@ -33,7 +33,7 @@ export async function purchaseWifi(request, env, currentUser) {
   if (!wallet) return error('Wallet missing');
   const price = Number(pkg.price);
   const before = Number(wallet.balance);
-  if (before < price) return error('Insufficient balance');
+  // Wallets can go into overdraft — no insufficient-balance check.
 
   // Daily/monthly spend limit check
   if (Number(wallet.daily_limit) > 0 && Number(wallet.daily_spent || 0) + price > Number(wallet.daily_limit)) {
@@ -50,8 +50,8 @@ export async function purchaseWifi(request, env, currentUser) {
 
   await batch(env, [
     {
-      sql: 'UPDATE wallets SET balance = balance - ?, daily_spent = daily_spent + ?, monthly_spent = monthly_spent + ?, updated_at = ? WHERE id = ? AND balance >= ?',
-      binds: [price, price, price, nowIso(), wallet.id, price],
+      sql: 'UPDATE wallets SET balance = balance - ?, daily_spent = daily_spent + ?, monthly_spent = monthly_spent + ?, updated_at = ? WHERE id = ? AND balance = ?',
+      binds: [price, price, price, nowIso(), wallet.id, before],
     },
     {
       sql: `INSERT INTO transactions (id, wallet_id, type, amount, balance_before, balance_after,
@@ -144,7 +144,7 @@ export async function purchaseElectricity(request, env, currentUser) {
   if (!wallet) return error('Wallet missing');
   const price = Number(pkg.price);
   const before = Number(wallet.balance);
-  if (before < price) return error('Insufficient balance');
+  // Overdraft allowed.
 
   if (Number(wallet.daily_limit) > 0 && Number(wallet.daily_spent || 0) + price > Number(wallet.daily_limit)) {
     return error(`Daily spend limit exceeded (R${Number(wallet.daily_limit).toFixed(2)})`, 403);
@@ -155,15 +155,20 @@ export async function purchaseElectricity(request, env, currentUser) {
 
   const after = before - price;
   const kwh = Number(pkg.kwh_amount || 0);
+  const isUnlimited = (pkg.package_type || '').toUpperCase() === 'UNLIMITED';
+  const validityDays = Number(pkg.validity_days || 0);
   const newKwh = Number(meter.kwh_balance || 0) + kwh;
+  const unlimitedExpiresAt = isUnlimited && validityDays > 0
+    ? new Date(Date.now() + validityDays * 86400_000).toISOString()
+    : null;
 
   const txId = uuid();
   const ref = transactionRef();
 
-  await batch(env, [
+  const stmts = [
     {
-      sql: 'UPDATE wallets SET balance = balance - ?, daily_spent = daily_spent + ?, monthly_spent = monthly_spent + ?, updated_at = ? WHERE id = ? AND balance >= ?',
-      binds: [price, price, price, nowIso(), wallet.id, price],
+      sql: 'UPDATE wallets SET balance = balance - ?, daily_spent = daily_spent + ?, monthly_spent = monthly_spent + ?, updated_at = ? WHERE id = ? AND balance = ?',
+      binds: [price, price, price, nowIso(), wallet.id, before],
     },
     {
       sql: `INSERT INTO transactions (id, wallet_id, type, amount, balance_before, balance_after,
@@ -172,14 +177,25 @@ export async function purchaseElectricity(request, env, currentUser) {
       binds: [txId, wallet.id, -price, before, after, ref,
               `Electricity: ${pkg.name} for ${meter.meter_number}`,
               idempotencyKey,
-              JSON.stringify({ product: 'ELECTRICITY', package_id: pkg.id, meter_id: meter.id, kwh }),
+              JSON.stringify({ product: 'ELECTRICITY', package_id: pkg.id, meter_id: meter.id, kwh, unlimited_until: unlimitedExpiresAt }),
               nowIso()],
     },
-    {
+  ];
+
+  if (isUnlimited) {
+    // Extend or set the unlimited window on the meter.
+    stmts.push({
+      sql: `UPDATE electricity_meters SET unlimited_expires_at = ?, updated_at = ? WHERE id = ?`,
+      binds: [unlimitedExpiresAt, nowIso(), meter.id],
+    });
+  } else if (kwh > 0) {
+    stmts.push({
       sql: 'UPDATE electricity_meters SET kwh_balance = kwh_balance + ?, updated_at = ? WHERE id = ?',
       binds: [kwh, nowIso(), meter.id],
-    },
-  ]);
+    });
+  }
+
+  await batch(env, stmts);
 
   const updated = await one(env, 'SELECT balance FROM wallets WHERE id = ?', wallet.id);
   if (Number(updated.balance) !== after) {

@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
 import { Logo } from '@/components/Logo';
+import { InstallPrompt } from '@/components/InstallPrompt';
 import { cn } from '@/lib/utils';
 import {
   Bell, ChevronDown, LogOut, User as UserIcon, LifeBuoy, Menu, X, Home,
@@ -210,6 +211,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </nav>
       <div className="md:hidden h-14" /> {/* spacer for bottom nav */}
+      <InstallPrompt />
     </div>
   );
 }

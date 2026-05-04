@@ -38,6 +38,45 @@ export async function listHouseholds(request, env, currentUser, deps) {
   return json(out);
 }
 
+/**
+ * Households whose UNLIMITED electricity meter is expiring within `days` days
+ * (default 7). Used by the agent / office-manager dashboard to alert which
+ * customers need to top up before they're cut off.
+ */
+export async function expiringHouseholds(request, env, _currentUser, deps) {
+  const url = new URL(request.url);
+  const days = Math.max(1, Math.min(60, parseInt(url.searchParams.get('days') || '7', 10)));
+  const cutoff = new Date(Date.now() + days * 86400_000).toISOString();
+
+  const where = ['m.unlimited_expires_at IS NOT NULL', 'm.unlimited_expires_at <= ?'];
+  const binds = [cutoff];
+
+  // If the requester is an agent, scope to households they registered, unless
+  // they're admin/office-manager (those can see every household).
+  if (deps?.agent && !deps?.roles?.includes?.('ADMIN') && !deps?.roles?.includes?.('OFFICE_MANAGER')) {
+    where.push('h.registered_by_agent_id = ?');
+    binds.push(deps.agent.id);
+  }
+
+  const rows = await all(
+    env,
+    `SELECT h.id, h.account_number, h.primary_contact_name, h.primary_contact_phone,
+            h.suburb, h.city, h.community_office_id,
+            m.meter_number, m.unlimited_expires_at,
+            (julianday(m.unlimited_expires_at) - julianday('now')) AS days_remaining
+     FROM households h
+     JOIN electricity_meters m ON m.id = h.meter_id
+     WHERE ${where.join(' AND ')} AND h.status = 'ACTIVE'
+     ORDER BY m.unlimited_expires_at ASC
+     LIMIT 200`,
+    ...binds,
+  );
+  return json(rows.map((r) => ({
+    ...r,
+    days_remaining: Math.max(0, Math.round(Number(r.days_remaining || 0) * 10) / 10),
+  })));
+}
+
 export async function myHouseholds(_request, env, currentUser) {
   const rows = await all(env, 'SELECT * FROM households WHERE user_id = ?', currentUser.id);
   const out = [];
@@ -51,7 +90,7 @@ export async function getHousehold(_request, env, _user, _deps, params) {
   return json(await attachRefs(env, h));
 }
 
-export async function createHousehold(request, env, _currentUser, deps) {
+export async function createHousehold(request, env, currentUser, deps) {
   const body = await readBody(request);
   if (!body.primary_contact_name || !body.primary_contact_phone || !body.tariff_id) {
     return error('primary_contact_name, primary_contact_phone and tariff_id are required');
@@ -97,7 +136,7 @@ export async function createHousehold(request, env, _currentUser, deps) {
        status, notes, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, 'ACTIVE', ?, ?, ?)`,
     id, accountNumber(), userId, meterId, body.tariff_id, body.community_office_id || null,
-    deps.agent.id,
+    deps?.agent ? deps.agent.id : null,
     body.primary_contact_name, body.primary_contact_phone, body.primary_contact_id_number || null,
     body.email || null,
     body.erf_number || null, body.street_address || null,

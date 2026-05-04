@@ -1154,6 +1154,38 @@ class ApiService {
       body: JSON.stringify({ user_id, role }),
     });
   }
+
+  // ============ Sales register / deposit ============
+  async getWalletSummary() {
+    return this.request<{
+      balance: number;
+      cash_on_hand: number;
+      total_sales: { amount: number; count: number };
+      total_deposits: { amount: number; count: number };
+      total_topups: { amount: number; count: number };
+    }>('/wallet/summary');
+  }
+
+  async depositToNxt(amount: number, note?: string, reference?: string) {
+    return this.request<{ new_balance: number; reference: string; transaction_id: string }>(
+      '/wallet/deposit-to-nxt',
+      { method: 'POST', body: JSON.stringify({ amount, note, reference }) },
+    );
+  }
+
+  async listExpiringHouseholds(days = 7) {
+    return this.request<Array<{
+      id: string;
+      account_number: string;
+      primary_contact_name: string;
+      primary_contact_phone: string;
+      suburb: string | null;
+      city: string | null;
+      meter_number: string;
+      unlimited_expires_at: string;
+      days_remaining: number;
+    }>>(`/households/expiring?days=${days}`);
+  }
 }
 
 export interface SupportTicketCreate {

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/PageHeader';
 import { StatCard } from '@/components/Stat';
 import api, { Invoice, CashCollection } from '@/services/api';
-import { Loader2, Coins, CheckCircle2, FileText, Copy } from 'lucide-react';
+import { Loader2, Coins, CheckCircle2, FileText, Copy, Share2 } from 'lucide-react';
 
 const fmt = (n: number) => new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(n);
 
@@ -58,6 +58,19 @@ export default function InvoiceDetailPage() {
       });
   };
 
+  const shareInvoice = async () => {
+    const text = `Invoice ${invoice.invoice_number}\n` +
+      `${invoice.household_contact_name || ''} (${invoice.household_account_number})\n` +
+      `Total due: R${Number(invoice.total_amount).toFixed(2)}\n` +
+      `Status: ${invoice.status}\n` +
+      `Due ${new Date(invoice.due_date).toLocaleDateString()}`;
+    if (navigator.share) {
+      try { await navigator.share({ title: `Invoice ${invoice.invoice_number}`, text }); } catch { /* dismissed */ }
+    } else {
+      window.open(`sms:?body=${encodeURIComponent(text)}`, '_blank');
+    }
+  };
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <PageHeader
@@ -65,9 +78,14 @@ export default function InvoiceDetailPage() {
         description={`${invoice.household_contact_name || ''} · ${invoice.household_account_number || ''}`}
         back={-1 as any}
         actions={
-          <Button variant="outline" onClick={openReceipt}>
-            <FileText className="w-4 h-4" /> Receipt
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={shareInvoice}>
+              <Share2 className="w-4 h-4" /> Send
+            </Button>
+            <Button variant="outline" size="sm" onClick={openReceipt}>
+              <FileText className="w-4 h-4" /> Receipt
+            </Button>
+          </div>
         }
       />
 

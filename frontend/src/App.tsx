@@ -37,6 +37,7 @@ import HouseholdDetailPage from './pages/agent/HouseholdDetail';
 import MeterReadingPage from './pages/agent/MeterReading';
 import AgentInvoiceDetailPage from './pages/agent/InvoiceDetail';
 import SettlementPage from './pages/agent/Settlement';
+import ExpiringHouseholdsPage from './pages/agent/Expiring';
 import UserInvoicesPage from './pages/user/Invoices';
 import UserInvoiceDetailPage from './pages/user/InvoiceDetail';
 import ConfirmPaymentPage from './pages/user/ConfirmPayment';
@@ -118,6 +119,7 @@ function AppRoutes() {
       <Route path="/agent/invoices/:id" element={<ProtectedRoute><AgentInvoiceDetailPage /></ProtectedRoute>} />
       <Route path="/agent/settlements" element={<ProtectedRoute><SettlementPage /></ProtectedRoute>} />
       <Route path="/agent/settlements/:id" element={<ProtectedRoute><SettlementPage /></ProtectedRoute>} />
+      <Route path="/agent/expiring" element={<ProtectedRoute><ExpiringHouseholdsPage /></ProtectedRoute>} />
 
       {/* Notifications + Support (shared) */}
       <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />

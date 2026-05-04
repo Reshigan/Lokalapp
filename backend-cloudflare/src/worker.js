@@ -4,7 +4,7 @@
 
 import { json, error, corsPreflight } from './lib/http.js';
 import {
-  requireUser, requireAgent, requireAdmin, requireSupport, requireRole,
+  requireUser, requireAgent, requireSeller, requireAdmin, requireSupport, requireRole,
 } from './lib/auth.js';
 
 import * as auth from './handlers/auth.js';
@@ -49,6 +49,8 @@ const ROUTES = [
   ['GET',    '/wallet/transactions',           wallet.listTransactions, 'user'],
   ['POST',   '/wallet/topup',                  wallet.topup,            'user'],
   ['POST',   '/wallet/transfer',               wallet.transfer,         'user'],
+  ['POST',   '/wallet/deposit-to-nxt',         wallet.depositToNxt,     'user'],
+  ['GET',    '/wallet/summary',                wallet.walletSummary,    'user'],
 
   // ---- prepaid products ----
   ['GET',    '/wifi/packages',                 products.listWifiPackages,    'public'],
@@ -71,21 +73,22 @@ const ROUTES = [
   ['POST',   '/community-offices/',            offices.createOffice,    'admin'],
 
   // ---- households ----
-  ['GET',    '/households/',                   households.listHouseholds, 'agent'],
+  ['GET',    '/households/',                   households.listHouseholds, 'seller'],
   ['GET',    '/households/mine',               households.myHouseholds,   'user'],
-  ['POST',   '/households/',                   households.createHousehold, 'agent'],
+  ['GET',    '/households/expiring',           households.expiringHouseholds, 'seller'],
+  ['POST',   '/households/',                   households.createHousehold, 'seller'],
   ['GET',    '/households/:id',                households.getHousehold,    'user'],
-  ['PUT',    '/households/:id',                households.updateHousehold, 'agent'],
+  ['PUT',    '/households/:id',                households.updateHousehold, 'seller'],
 
   // ---- billing ----
-  ['POST',   '/billing/readings',                       billing.captureReading,    'agent'],
+  ['POST',   '/billing/readings',                       billing.captureReading,    'seller'],
   ['GET',    '/billing/invoices',                       billing.listInvoices,      'user'],
   ['GET',    '/billing/invoices/:id',                   billing.getInvoice,        'user'],
   ['GET',    '/billing/invoices/:id/receipt',           billing.invoiceReceipt,    'user'],
-  ['POST',   '/billing/collections',                    billing.createCollection,  'agent'],
+  ['POST',   '/billing/collections',                    billing.createCollection,  'seller'],
   ['POST',   '/billing/collections/:id/confirm',        billing.confirmCollection, 'user'],
-  ['GET',    '/billing/collections/mine',               billing.myCollections,     'agent'],
-  ['GET',    '/billing/collections/cash-on-hand',       billing.cashOnHand,        'agent'],
+  ['GET',    '/billing/collections/mine',               billing.myCollections,     'seller'],
+  ['GET',    '/billing/collections/cash-on-hand',       billing.cashOnHand,        'seller'],
 
   // ---- settlements ----
   ['POST',   '/settlements/',                  settlements.submitSettlement, 'agent'],
@@ -104,7 +107,7 @@ const ROUTES = [
   ['GET',    '/agent/customers/search',        agents.searchCustomers,  'agent'],
   ['POST',   '/agent/customers',               agents.registerCustomer, 'agent'],
   ['GET',    '/agent/customers/:id',           agents.customerDetail,   'agent'],
-  ['POST',   '/agent/transaction',             agents.processTransaction, 'agent'],
+  ['POST',   '/agent/transaction',             agents.processTransaction, 'seller'],
   ['GET',    '/agent/commissions',             agents.getCommissions,    'agent'],
   ['POST',   '/agent/commissions/withdraw',    agents.withdrawCommission, 'agent'],
   ['GET',    '/agent/sales-report',            agents.salesReport,      'agent'],
@@ -210,6 +213,12 @@ async function authorize(scope, env, request) {
     const r = await requireAgent(env, request);
     if (r.error) return { error: r.error };
     return { ok: true, user: r.user, deps: { agent: r.agent }, roles: r.roles };
+  }
+  if (scope === 'seller') {
+    // AGENT or OFFICE_MANAGER — both can sell vouchers and collect cash.
+    const r = await requireSeller(env, request);
+    if (r.error) return { error: r.error };
+    return { ok: true, user: r.user, deps: { agent: r.agent, roles: r.roles }, roles: r.roles };
   }
   if (scope === 'admin') {
     const r = await requireAdmin(env, request);

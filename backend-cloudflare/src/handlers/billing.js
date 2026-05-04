@@ -48,9 +48,19 @@ export async function captureReading(request, env, currentUser, deps) {
   if (!household) return error('Household not found', 404);
   if (household.status !== 'ACTIVE') return error(`Household status is ${household.status}`);
 
-  // Authorization: only the household's registered agent can capture readings.
-  if (household.registered_by_agent_id && household.registered_by_agent_id !== deps.agent.id) {
-    return error('Not authorised — this household is registered to another agent', 403);
+  // Authorization: only the household's registered agent OR an OFFICE_MANAGER
+  // of the household's community office can capture readings.
+  let allowedReader = false;
+  if (deps?.agent && (!household.registered_by_agent_id || household.registered_by_agent_id === deps.agent.id)) {
+    allowedReader = true;
+  } else if (!deps?.agent && deps?.roles?.includes?.('OFFICE_MANAGER')) {
+    if (household.community_office_id) {
+      const office = await one(env, 'SELECT manager_user_id FROM community_offices WHERE id = ?', household.community_office_id);
+      if (office?.manager_user_id === currentUser.id) allowedReader = true;
+    }
+  }
+  if (!allowedReader) {
+    return error('Not authorised to capture readings for this household', 403);
   }
 
   // Block reading capture on flagged meters.
@@ -127,7 +137,7 @@ export async function captureReading(request, env, currentUser, deps) {
               current_reading_kwh, kwh_consumed, source, peak_kwh, standard_kwh, off_peak_kwh,
               photo_url, notes, captured_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, 'AGENT', ?, ?, ?, ?, ?, ?)`,
-      binds: [readingId, household.id, household.meter_id, deps.agent.id,
+      binds: [readingId, household.id, household.meter_id, deps?.agent ? deps.agent.id : null,
               prev, curr, consumed,
               body.peak_kwh ?? null, body.standard_kwh ?? null, body.off_peak_kwh ?? null,
               body.photo_url || null, body.notes || null, nowIso()],
@@ -138,7 +148,7 @@ export async function captureReading(request, env, currentUser, deps) {
               previous_reading_kwh, current_reading_kwh, kwh_consumed,
               energy_charge, service_fee, total_amount, amount_paid, breakdown, status, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'ISSUED', ?, ?)`,
-      binds: [invoiceId, invNum, household.id, tariff.id, readingId, deps.agent.id,
+      binds: [invoiceId, invNum, household.id, tariff.id, readingId, deps?.agent ? deps.agent.id : null,
               period_start, period_end, nowIso(), dueDate,
               prev, curr, consumed,
               energyCharge, serviceFee, total,
@@ -313,18 +323,30 @@ export async function createCollection(request, env, currentUser, deps) {
   if (invoice.status === 'PAID') return error('Invoice already paid');
   if (invoice.status === 'CANCELLED') return error('Invoice cancelled');
 
-  // Authorization: only the issuing agent OR an agent who registered the household
-  // can take cash for it. Prevents random agents grief-locking invoices with
-  // pending collections.
+  // Authorization: the issuing agent, the agent who registered the household,
+  // OR an OFFICE_MANAGER of the household's community office. Prevents
+  // grief-locking invoices with bogus pending collections.
   const household = await one(
     env,
-    'SELECT registered_by_agent_id FROM households WHERE id = ?',
+    'SELECT registered_by_agent_id, community_office_id FROM households WHERE id = ?',
     invoice.household_id,
   );
-  const allowed = (
-    invoice.issued_by_agent_id === deps.agent.id ||
-    household?.registered_by_agent_id === deps.agent.id
-  );
+  let allowed = false;
+  if (deps.agent) {
+    allowed = (
+      invoice.issued_by_agent_id === deps.agent.id ||
+      household?.registered_by_agent_id === deps.agent.id
+    );
+  }
+  if (!allowed && household?.community_office_id) {
+    // Is the current user the manager of the household's office?
+    const office = await one(
+      env,
+      'SELECT manager_user_id FROM community_offices WHERE id = ?',
+      household.community_office_id,
+    );
+    if (office?.manager_user_id === currentUser.id) allowed = true;
+  }
   if (!allowed) {
     return error('Not authorised to collect cash for this household', 403);
   }
@@ -347,14 +369,19 @@ export async function createCollection(request, env, currentUser, deps) {
 
   const id = uuid();
   const code = confirmCode();
+  // agent_id stored only if there's an agents row; office-manager direct
+  // collections leave it null and use collected_by_user_id.
   await run(
     env,
-    `INSERT INTO cash_collections (id, receipt_number, invoice_id, household_id, agent_id, amount,
-     status, agent_confirmed_at, household_confirm_code, location_lat, location_lng, notes,
-     settled, collected_at)
-     VALUES (?, ?, ?, ?, ?, ?, 'PENDING_HOUSEHOLD_CONFIRM', ?, ?, ?, ?, ?, 0, ?)`,
-    id, receiptNumber(), invoice.id, invoice.household_id, deps.agent.id, amount,
-    nowIso(), code, body.location_lat || null, body.location_lng || null, body.notes || null,
+    `INSERT INTO cash_collections (id, receipt_number, invoice_id, household_id, agent_id,
+       collected_by_user_id, amount, status, agent_confirmed_at, household_confirm_code,
+       location_lat, location_lng, notes, settled, collected_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING_HOUSEHOLD_CONFIRM', ?, ?, ?, ?, ?, 0, ?)`,
+    id, receiptNumber(), invoice.id, invoice.household_id,
+    deps.agent ? deps.agent.id : null,
+    currentUser.id,
+    amount, nowIso(), code,
+    body.location_lat || null, body.location_lng || null, body.notes || null,
     nowIso(),
   );
 
@@ -393,8 +420,20 @@ export async function confirmCollection(request, env, currentUser, _deps, params
   const newStatus = newPaid >= Number(inv.total_amount) ? 'PAID' : inv.status;
   const amt = Number(c.amount);
 
+  // Credit the collector's wallet (sales-register model — cash on hand)
+  let collectorWalletUpdate = null;
+  if (c.collected_by_user_id) {
+    const cw = await one(env, 'SELECT id, balance FROM wallets WHERE user_id = ?', c.collected_by_user_id);
+    if (cw) {
+      collectorWalletUpdate = {
+        sql: 'UPDATE wallets SET balance = balance + ?, updated_at = ? WHERE id = ?',
+        binds: [amt, nowIso(), cw.id],
+      };
+    }
+  }
+
   // Atomic state transition. The WHERE status= guard prevents double-confirm.
-  await batch(env, [
+  const stmts = [
     {
       sql: `UPDATE cash_collections SET status = 'CONFIRMED', household_confirmed_at = ?
             WHERE id = ? AND status = 'PENDING_HOUSEHOLD_CONFIRM'`,
@@ -408,7 +447,9 @@ export async function confirmCollection(request, env, currentUser, _deps, params
       sql: `UPDATE households SET current_balance = current_balance - ?, updated_at = ? WHERE id = ?`,
       binds: [amt, nowIso(), c.household_id],
     },
-  ]);
+  ];
+  if (collectorWalletUpdate) stmts.push(collectorWalletUpdate);
+  await batch(env, stmts);
 
   // Verify confirmation actually applied (race window)
   const after = await one(env, 'SELECT status FROM cash_collections WHERE id = ?', c.id);
@@ -436,11 +477,15 @@ export async function confirmCollection(request, env, currentUser, _deps, params
   return json(collectionPublic(updated, inv));
 }
 
-export async function myCollections(request, env, _user, deps) {
+export async function myCollections(request, env, currentUser, deps) {
   const url = new URL(request.url);
   const unsettledOnly = url.searchParams.get('unsettled_only') === 'true';
-  let sql = 'SELECT * FROM cash_collections WHERE agent_id = ?';
-  const binds = [deps.agent.id];
+  // Match collections by agent_id (legacy) OR collected_by_user_id (current user)
+  // — covers both agent and office-manager direct collections.
+  let sql = 'SELECT * FROM cash_collections WHERE (collected_by_user_id = ?';
+  const binds = [currentUser.id];
+  if (deps?.agent) { sql += ' OR agent_id = ?'; binds.push(deps.agent.id); }
+  sql += ')';
   if (unsettledOnly) {
     sql += " AND settled = 0 AND status = 'CONFIRMED'";
   }
@@ -457,12 +502,15 @@ export async function myCollections(request, env, _user, deps) {
   return json(cs.map((c) => collectionPublic(c, map[c.invoice_id])));
 }
 
-export async function cashOnHand(_request, env, _user, deps) {
+export async function cashOnHand(_request, env, currentUser, deps) {
+  let where = '(collected_by_user_id = ?';
+  const binds = [currentUser.id];
+  if (deps?.agent) { where += ' OR agent_id = ?'; binds.push(deps.agent.id); }
+  where += ") AND settled = 0 AND status = 'CONFIRMED'";
   const r = await one(
     env,
-    `SELECT COALESCE(SUM(amount), 0) AS amount, COUNT(*) AS num FROM cash_collections
-     WHERE agent_id = ? AND settled = 0 AND status = 'CONFIRMED'`,
-    deps.agent.id,
+    `SELECT COALESCE(SUM(amount), 0) AS amount, COUNT(*) AS num FROM cash_collections WHERE ${where}`,
+    ...binds,
   );
   return json({ amount: Number(r.amount || 0), num_collections: Number(r.num || 0) });
 }

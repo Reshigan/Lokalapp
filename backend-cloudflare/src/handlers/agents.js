@@ -274,17 +274,31 @@ export async function customerDetail(_request, env, _user, deps, params) {
 
 const COMMISSION_BY_TIER = COMMISSION_RATES;
 
-export async function processTransaction(request, env, _user, deps) {
+export async function processTransaction(request, env, currentUser, deps) {
   const body = await readBody(request);
   const idempotencyKey = getIdempotencyKey(request, body);
 
   const phone = normalizePhone(body.customer_phone);
-  const customer = await one(env, 'SELECT * FROM users WHERE phone_number = ?', phone);
-  if (!customer) return error('Customer not found', 404);
+  let customer = await one(env, 'SELECT * FROM users WHERE phone_number = ?', phone);
+  if (!customer) {
+    // Auto-register the customer with a placeholder user record so the seller
+    // doesn't have to pre-register them. They can claim the account later by
+    // signing in with this phone via OTP.
+    const newId = uuid();
+    await run(
+      env,
+      `INSERT INTO users (id, phone_number, kyc_status, status, referral_code, loyalty_points, created_at, updated_at)
+       VALUES (?, ?, 'PENDING', 'ACTIVE', ?, 0, ?, ?)`,
+      newId, phone,
+      'REF' + Math.random().toString(36).slice(2, 8).toUpperCase(),
+      nowIso(), nowIso(),
+    );
+    customer = await one(env, 'SELECT * FROM users WHERE id = ?', newId);
+  }
 
-  // Anti-fraud: agents can't sell to themselves and earn commission on their own purchase.
-  if (customer.id === deps.agent.user_id) {
-    return error('You cannot process your own purchases through your agent account', 403);
+  // Anti-fraud: sellers can't process their own purchases.
+  if (customer.id === currentUser.id) {
+    return error('You cannot process your own purchases', 403);
   }
 
   let pkg = null;
@@ -301,57 +315,73 @@ export async function processTransaction(request, env, _user, deps) {
     const seen = await one(env, 'SELECT * FROM transactions WHERE idempotency_key = ?', idempotencyKey);
     if (seen) {
       const extra = (() => { try { return JSON.parse(seen.extra_data || '{}'); } catch { return {}; } })();
-      const a = await one(env, 'SELECT float_balance FROM agents WHERE id = ?', deps.agent.id);
       return json({
         transaction_id: seen.id, reference: seen.reference,
         voucher_code: extra.voucher_code, amount: Math.abs(Number(seen.amount)),
         commission_earned: Number(extra.commission || 0),
-        new_float_balance: Number(a?.float_balance || 0),
+        new_wallet_balance: Number(seen.balance_after),
         replayed: true,
       });
     }
   }
 
   const price = Number(pkg.price);
-  if (Number(deps.agent.float_balance) < price) return error('Insufficient agent float');
 
-  const commissionRate = COMMISSION_BY_TIER[deps.agent.tier] || 0.05;
+  // Sales-register model: the seller's own wallet is the cash register.
+  // - Selling a voucher CREDITS the seller's wallet by the price (cash collected).
+  // - The customer pays cash directly — no customer wallet debit.
+  // - The float concept is gone; OFFICE_MANAGER without an agents row works the same.
+  const sellerWallet = await one(env, 'SELECT id, balance FROM wallets WHERE user_id = ?', currentUser.id);
+  if (!sellerWallet) return error('Seller wallet missing');
+  const wBefore = Number(sellerWallet.balance);
+  const wAfter = wBefore + price;
+
+  // Commission: only agents (with an agents row) earn commission. Office
+  // managers acting as direct sellers don't.
+  const commissionRate = deps.agent ? (COMMISSION_BY_TIER[deps.agent.tier] || 0.05) : 0;
   const commission = Math.round(price * commissionRate * 100) / 100;
-
-  const customerWallet = await one(env, 'SELECT id, balance FROM wallets WHERE user_id = ?', customer.id);
-  if (!customerWallet) return error('Customer has no wallet');
 
   const txId = uuid();
   const ref = transactionRef();
   let voucherCodeOut, voucherId;
 
   const stmts = [
+    // Credit the seller's wallet — sales register
     {
-      sql: `UPDATE agents SET float_balance = float_balance - ?, commission_balance = commission_balance + ?,
-              total_sales = total_sales + ?, monthly_sales = monthly_sales + ?, updated_at = ? WHERE id = ? AND float_balance >= ?`,
-      binds: [price, commission, price, price, nowIso(), deps.agent.id, price],
+      sql: 'UPDATE wallets SET balance = balance + ?, updated_at = ? WHERE id = ? AND balance = ?',
+      binds: [price, nowIso(), sellerWallet.id, wBefore],
     },
+    // Sale transaction recorded on the seller's wallet
     {
       sql: `INSERT INTO transactions (id, wallet_id, agent_id, type, amount, balance_before, balance_after,
               reference, status, payment_method, description, idempotency_key, extra_data, created_at)
-            VALUES (?, ?, ?, 'PURCHASE', ?, ?, ?, ?, 'COMPLETED', 'AGENT', ?, ?, ?, ?)`,
+            VALUES (?, ?, ?, 'PURCHASE', ?, ?, ?, ?, 'COMPLETED', 'CASH', ?, ?, ?, ?)`,
       binds: [
-        txId, customerWallet.id, deps.agent.id,
-        -price, Number(customerWallet.balance), Number(customerWallet.balance), ref,
-        `${body.product_type} via agent ${deps.agent.business_name}: ${pkg.name}`,
+        txId, sellerWallet.id, deps.agent ? deps.agent.id : null,
+        price, wBefore, wAfter, ref,
+        `Sale: ${pkg.name} to ${customer.phone_number}`,
         idempotencyKey,
-        '__placeholder__', // patched below before commit
+        '__placeholder__',
         nowIso(),
       ],
     },
-    {
+  ];
+
+  if (deps.agent && commission > 0) {
+    stmts.push({
+      sql: `UPDATE agents SET commission_balance = commission_balance + ?,
+              total_sales = total_sales + ?, monthly_sales = monthly_sales + ?, updated_at = ? WHERE id = ?`,
+      binds: [commission, price, price, nowIso(), deps.agent.id],
+    });
+    stmts.push({
       sql: `INSERT INTO agent_commissions (id, agent_id, transaction_id, type, amount, description, created_at)
             VALUES (?, ?, ?, 'EARNED', ?, ?, ?)`,
       binds: [uuid(), deps.agent.id, txId, commission,
               `Commission ${(commissionRate * 100).toFixed(0)}% on ${pkg.name}`, nowIso()],
-    },
-  ];
+    });
+  }
 
+  // Provision product to customer
   if (body.product_type === 'WIFI') {
     voucherId = uuid();
     voucherCodeOut = 'V' + Math.random().toString(36).slice(2, 14).toUpperCase();
@@ -362,20 +392,31 @@ export async function processTransaction(request, env, _user, deps) {
       binds: [voucherId, customer.id, pkg.id, voucherCodeOut, pkg.data_limit_mb, pkg.validity_hours, nowIso()],
     });
   } else if (body.product_type === 'ELECTRICITY' && body.meter_id) {
-    stmts.push({
-      sql: 'UPDATE electricity_meters SET kwh_balance = kwh_balance + ? WHERE id = ? AND user_id = ?',
-      binds: [Number(pkg.kwh_amount || 0), body.meter_id, customer.id],
-    });
+    const isUnlimited = (pkg.package_type || '').toUpperCase() === 'UNLIMITED';
+    const validityDays = Number(pkg.validity_days || 0);
+    if (isUnlimited && validityDays > 0) {
+      // Extend unlimited expiry by validity_days from the *later of* now or
+      // current expiry — so renewing early doesn't truncate the existing
+      // unused days, and renewing late starts from now.
+      const meterRow = await one(env, 'SELECT unlimited_expires_at FROM electricity_meters WHERE id = ?', body.meter_id);
+      const fromTs = Math.max(
+        Date.now(),
+        meterRow?.unlimited_expires_at ? new Date(meterRow.unlimited_expires_at).getTime() : 0,
+      );
+      const expiresAt = new Date(fromTs + validityDays * 86400_000).toISOString();
+      stmts.push({
+        sql: 'UPDATE electricity_meters SET unlimited_expires_at = ?, updated_at = ? WHERE id = ?',
+        binds: [expiresAt, nowIso(), body.meter_id],
+      });
+    } else if (Number(pkg.kwh_amount || 0) > 0) {
+      stmts.push({
+        sql: 'UPDATE electricity_meters SET kwh_balance = kwh_balance + ? WHERE id = ?',
+        binds: [Number(pkg.kwh_amount || 0), body.meter_id],
+      });
+    }
   }
 
-  // Update agent_customers totals if linked
-  stmts.push({
-    sql: `UPDATE agent_customers SET total_purchases = total_purchases + ?, last_purchase_at = ?
-          WHERE agent_id = ? AND user_id = ?`,
-    binds: [price, nowIso(), deps.agent.id, customer.id],
-  });
-
-  // Patch the placeholder extra_data now that we know voucher info
+  // Patch extra_data
   stmts[1].binds[10] = JSON.stringify({
     product: body.product_type,
     package_id: pkg.id,
@@ -388,10 +429,10 @@ export async function processTransaction(request, env, _user, deps) {
 
   await batch(env, stmts);
 
-  // Verify the float actually debited (if not, the WHERE float_balance >= ? guard caught a race)
-  const updatedAgent = await one(env, 'SELECT float_balance FROM agents WHERE id = ?', deps.agent.id);
-  if (Number(updatedAgent.float_balance) === Number(deps.agent.float_balance)) {
-    return error('Concurrent update — float not debited, please retry', 409);
+  // Verify the wallet credit landed (concurrent update guard)
+  const updated = await one(env, 'SELECT balance FROM wallets WHERE id = ?', sellerWallet.id);
+  if (Number(updated.balance) !== wAfter) {
+    return error('Concurrent update — please retry', 409);
   }
 
   return json({
@@ -400,7 +441,7 @@ export async function processTransaction(request, env, _user, deps) {
     voucher_code: voucherCodeOut,
     amount: price,
     commission_earned: commission,
-    new_float_balance: Number(updatedAgent.float_balance),
+    new_wallet_balance: wAfter,
   }, 201);
 }
 

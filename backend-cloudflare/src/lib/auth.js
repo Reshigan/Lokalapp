@@ -197,6 +197,18 @@ export async function requireAgent(env, request) {
   return { user: r.user, agent, roles: r.roles };
 }
 
+/**
+ * Anyone authorised to take cash for the platform — AGENT (with a row in
+ * `agents`) or OFFICE_MANAGER (no agents row). Returned `agent` may be null,
+ * so handlers should treat it as optional and credit the user's own wallet.
+ */
+export async function requireSeller(env, request) {
+  const r = await requireRole(env, request, 'AGENT', 'OFFICE_MANAGER');
+  if (r.error) return r;
+  const agent = await one(env, 'SELECT * FROM agents WHERE user_id = ? AND status = ?', r.user.id, 'ACTIVE');
+  return { user: r.user, agent: agent || null, roles: r.roles };
+}
+
 export async function requireAdmin(env, request) {
   return requireRole(env, request, 'ADMIN');
 }

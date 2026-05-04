@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/PageHeader';
 import { StatCard } from '@/components/Stat';
 import api, { Invoice } from '@/services/api';
-import { Loader2, FileText } from 'lucide-react';
+import { Loader2, FileText, Share2 } from 'lucide-react';
 
 const fmt = (n: number) => new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(n);
 
@@ -35,6 +35,24 @@ export default function InvoiceDetailUserPage() {
       });
   };
 
+  const shareInvoice = async () => {
+    if (!invoice) return;
+    const text = `Lokal invoice ${invoice.invoice_number}\n` +
+      `Total: R${Number(invoice.total_amount).toFixed(2)}\n` +
+      `Status: ${invoice.status}\n` +
+      `Due: ${new Date(invoice.due_date).toLocaleDateString()}\n` +
+      `${(import.meta.env.VITE_API_URL || '')}/billing/invoices/${invoice.id}/receipt`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `Invoice ${invoice.invoice_number}`, text });
+      } catch { /* user dismissed */ }
+    } else {
+      // Fallback: open SMS / mailto picker
+      const sms = `sms:?body=${encodeURIComponent(text)}`;
+      window.open(sms, '_blank');
+    }
+  };
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <PageHeader
@@ -42,9 +60,14 @@ export default function InvoiceDetailUserPage() {
         description={`Period ${new Date(invoice.period_start).toLocaleDateString()} – ${new Date(invoice.period_end).toLocaleDateString()}`}
         back="/user/invoices"
         actions={
-          <Button variant="outline" onClick={openReceipt}>
-            <FileText className="w-4 h-4" /> Receipt
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={shareInvoice}>
+              <Share2 className="w-4 h-4" /> Share
+            </Button>
+            <Button variant="outline" size="sm" onClick={openReceipt}>
+              <FileText className="w-4 h-4" /> Receipt
+            </Button>
+          </div>
         }
       />
 

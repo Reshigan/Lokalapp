@@ -127,7 +127,7 @@ export async function adjustUserWallet(request, env, currentUser, _deps, params)
   if (!wallet) return error('Wallet not found', 404);
   const before = Number(wallet.balance);
   const after = before + amt;
-  if (after < 0) return error('Adjustment would leave a negative balance');
+  // Wallets can go negative — admin adjustment is allowed to overdraft.
 
   const ref = transactionRef();
   await batch(env, [

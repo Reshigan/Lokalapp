@@ -1,5 +1,9 @@
 // Wallet handlers — every money-touching path is atomic (D1 batch) and
 // honors an Idempotency-Key (header or body) so a retry can't double-debit.
+//
+// For agents and office managers the wallet acts as a sales register:
+// sales credit the wallet (cash collected), and `depositToNxt` debits it
+// (cash handed over to the platform).
 
 import { json, readBody, error } from '../lib/http.js';
 import { one, all, run, batch, nowIso } from '../lib/db.js';
@@ -177,19 +181,18 @@ export async function transfer(request, env, currentUser) {
   const limitErr = checkLimits(sender, amount);
   if (limitErr) return error(limitErr, 403);
 
+  // Wallets can go into overdraft — no balance >= amount check here.
   const sBefore = Number(sender.balance);
-  if (sBefore < amount) return error('Insufficient balance');
-
   const sAfter = sBefore - amount;
   const rBefore = Number(recipientWallet.balance);
   const rAfter = rBefore + amount;
   const ref = transactionRef();
 
   await batch(env, [
-    // Debit sender — guarded by current balance to detect concurrent updates.
+    // Debit sender — guarded by current balance for concurrency, not overdraft.
     {
-      sql: 'UPDATE wallets SET balance = balance - ?, daily_spent = daily_spent + ?, updated_at = ? WHERE id = ? AND balance >= ?',
-      binds: [amount, amount, nowIso(), sender.id, amount],
+      sql: 'UPDATE wallets SET balance = balance - ?, daily_spent = daily_spent + ?, updated_at = ? WHERE id = ? AND balance = ?',
+      binds: [amount, amount, nowIso(), sender.id, sBefore],
     },
     {
       sql: 'UPDATE wallets SET balance = balance + ?, updated_at = ? WHERE id = ?',
@@ -224,4 +227,97 @@ export async function transfer(request, env, currentUser) {
   });
 
   return json({ reference: ref, new_balance: sAfter, transaction_id: 'completed' });
+}
+
+// ---------- Deposit to NXT ----------
+//
+// Agents and community-office managers collect cash on behalf of the platform.
+// When they hand it over to NXT (the operator), they hit this endpoint —
+// debiting their wallet (cash register) and recording a WITHDRAWAL transaction.
+
+export async function depositToNxt(request, env, currentUser) {
+  const body = await readBody(request);
+  const idempotencyKey = getIdempotencyKey(request, body);
+  const amount = Number(body.amount);
+  if (!(amount > 0)) return error('amount must be > 0');
+
+  if (idempotencyKey) {
+    const seen = await one(env, 'SELECT * FROM transactions WHERE idempotency_key = ?', idempotencyKey);
+    if (seen) {
+      return json({
+        new_balance: Number(seen.balance_after), reference: seen.reference,
+        replayed: true,
+      });
+    }
+  }
+
+  const wallet = await ensureWallet(env, currentUser.id);
+  const before = Number(wallet.balance);
+  const after = before - amount;
+  // Wallet is allowed to go negative on deposit (overdraft).
+
+  const ref = transactionRef();
+  const txId = uuid();
+  await batch(env, [
+    {
+      sql: 'UPDATE wallets SET balance = ?, updated_at = ? WHERE id = ? AND balance = ?',
+      binds: [after, nowIso(), wallet.id, before],
+    },
+    {
+      sql: `INSERT INTO transactions (id, wallet_id, type, amount, balance_before, balance_after,
+              reference, status, payment_method, description, idempotency_key, extra_data, created_at)
+            VALUES (?, ?, 'WITHDRAWAL', ?, ?, ?, ?, 'COMPLETED', 'DEPOSIT_NXT', ?, ?, ?, ?)`,
+      binds: [txId, wallet.id, -amount, before, after, ref,
+              body.note || `Deposit to NXT: R${amount.toFixed(2)}`,
+              idempotencyKey,
+              JSON.stringify({ kind: 'deposit_to_nxt', amount, reference: body.reference || null }),
+              nowIso()],
+    },
+  ]);
+
+  const verify = await one(env, 'SELECT balance FROM wallets WHERE id = ?', wallet.id);
+  if (Number(verify.balance) !== after) {
+    return error('Concurrent update detected, please retry', 409);
+  }
+
+  await audit(env, request, {
+    actor_user_id: currentUser.id, action: 'wallet.deposit_to_nxt',
+    entity_type: 'wallet', entity_id: wallet.id,
+    new: { amount, balance_after: after, reference: ref },
+  });
+
+  return json({ new_balance: after, reference: ref, transaction_id: txId });
+}
+
+/**
+ * Sales summary for a wallet — total credits (sales + topups) and debits
+ * (deposits + withdrawals). Used by the agent / office-manager dashboard
+ * to show "cash on hand" and "total sales" without computing client-side.
+ */
+export async function walletSummary(_request, env, currentUser) {
+  const w = await ensureWallet(env, currentUser.id);
+
+  // Sales = sum of positive PURCHASE entries on this wallet (sales-register model)
+  const sales = await one(
+    env,
+    "SELECT COALESCE(SUM(amount), 0) AS v, COUNT(*) AS c FROM transactions WHERE wallet_id = ? AND type = 'PURCHASE' AND amount > 0",
+    w.id,
+  );
+  const deposits = await one(
+    env,
+    "SELECT COALESCE(SUM(-amount), 0) AS v, COUNT(*) AS c FROM transactions WHERE wallet_id = ? AND payment_method = 'DEPOSIT_NXT'",
+    w.id,
+  );
+  const topups = await one(
+    env,
+    "SELECT COALESCE(SUM(amount), 0) AS v, COUNT(*) AS c FROM transactions WHERE wallet_id = ? AND type = 'TOPUP'",
+    w.id,
+  );
+  return json({
+    balance: Number(w.balance),
+    cash_on_hand: Number(w.balance),
+    total_sales:    { amount: Number(sales.v),    count: Number(sales.c) },
+    total_deposits: { amount: Number(deposits.v), count: Number(deposits.c) },
+    total_topups:   { amount: Number(topups.v),   count: Number(topups.c) },
+  });
 }
