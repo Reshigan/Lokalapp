@@ -170,9 +170,10 @@ export async function listCustomers(request, env, _currentUser, deps) {
 function normalizePhone(p) {
   if (!p) return '';
   p = String(p).replace(/[^\d+]/g, '');
-  if (p.startsWith('0')) p = '+27' + p.slice(1);
-  else if (!p.startsWith('+')) p = '+27' + p;
-  return p;
+  if (p.startsWith('+')) return p;
+  if (p.startsWith('0')) return '+27' + p.slice(1);
+  if (p.startsWith('27')) return '+' + p;
+  return '+27' + p;
 }
 
 export async function searchCustomers(request, env, _user, deps) {

@@ -25,9 +25,10 @@ function shouldExposeDebugOtp(env) {
 function normalizePhone(p) {
   if (!p) return '';
   p = String(p).replace(/[^\d+]/g, '');
-  if (p.startsWith('0')) p = '+27' + p.slice(1);
-  else if (!p.startsWith('+')) p = '+27' + p;
-  return p;
+  if (p.startsWith('+')) return p;          // already E.164 — keep
+  if (p.startsWith('0')) return '+27' + p.slice(1);  // 0XXXXXXXXX → +27XXXXXXXXX
+  if (p.startsWith('27')) return '+' + p;   // 27XXXXXXXXX → +27XXXXXXXXX (no double 27)
+  return '+27' + p;                         // bare 9-digit → +27XXXXXXXXX
 }
 
 async function findOrCreateWallet(env, userId) {
