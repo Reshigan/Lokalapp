@@ -19,7 +19,7 @@ const PRESETS = [200, 500, 1000, 2000, 5000];
 export default function FloatPage() {
   const [info, setInfo] = useState<FloatInfo | null>(null);
   const [amount, setAmount] = useState('');
-  const [method, setMethod] = useState<'CARD' | 'EFT'>('CARD');
+  const [method] = useState<'EFT'>('EFT');
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,12 +95,8 @@ export default function FloatPage() {
                 ))}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              {(['CARD', 'EFT'] as const).map((m) => (
-                <button key={m} type="button" onClick={() => setMethod(m)} className={`p-3 rounded-xl border text-sm font-medium ${method === m ? 'border-accent-400 bg-accent-50/40 text-accent-700' : 'border-surface-border text-ink-soft'}`}>
-                  {m === 'CARD' ? 'Card' : 'EFT'}
-                </button>
-              ))}
+            <div className="rounded-xl border border-surface-border bg-surface-subtle p-3 text-sm text-ink-soft">
+              EFT / SnapScan bank transfer
             </div>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <Button type="submit" disabled={processing || !amount} className="w-full">

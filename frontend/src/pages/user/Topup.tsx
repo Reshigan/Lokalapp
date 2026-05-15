@@ -6,15 +6,14 @@ import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/PageHeader';
 import { IconBadge } from '@/components/Stat';
 import api from '@/services/api';
-import { CreditCard, Smartphone, Building, Loader2, Check, Plus } from 'lucide-react';
+import { Smartphone, Building, Loader2, Check, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const PRESETS = [50, 100, 200, 500, 1000];
 
 const METHODS = [
-  { id: 'CARD',  label: 'Card',          desc: 'Visa / Mastercard',         icon: CreditCard },
-  { id: 'EFT',   label: 'EFT / SnapScan', desc: 'Bank transfer',             icon: Building },
-  { id: 'AGENT', label: 'Agent cash',    desc: 'Pay an agent in person',    icon: Smartphone },
+  { id: 'EFT',   label: 'EFT / SnapScan', desc: 'Bank transfer',          icon: Building },
+  { id: 'AGENT', label: 'Agent cash',     desc: 'Pay an agent in person', icon: Smartphone },
 ] as const;
 
 const fmt = (n: number) => new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(n);
@@ -22,7 +21,7 @@ const fmt = (n: number) => new Intl.NumberFormat('en-ZA', { style: 'currency', c
 export default function TopupPage() {
   const navigate = useNavigate();
   const [amount, setAmount] = useState('');
-  const [method, setMethod] = useState<'CARD' | 'EFT' | 'AGENT'>('CARD');
+  const [method, setMethod] = useState<'EFT' | 'AGENT'>('EFT');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
